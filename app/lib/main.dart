@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -13,11 +14,11 @@ class StreamDeckApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Stream Deck Client',
+      title: 'Stream Deck Extra Keys',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blueAccent,
+          seedColor: Colors.deepPurpleAccent,
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
@@ -35,33 +36,47 @@ class DeckScreen extends StatefulWidget {
 }
 
 class _DeckScreenState extends State<DeckScreen> {
-  String _serverIp = '192.168.1.100'; // IP Padrão
+  String _serverIp = '192.168.1.100';
   final int _serverPort = 8080;
   RawDatagramSocket? _udpSocket;
+  final Set<String> _pressedKeys = {};
 
-  // Lista de botões configuráveis
+  // 12 botões independentes vinculados às teclas de hardware F13 até F24
   final List<Map<String, dynamic>> _buttons = [
-    {'label': 'Acelerar (W)', 'key': 'w', 'color': Colors.green},
-    {'label': 'Frear/Re (S)', 'key': 's', 'color': Colors.red},
-    {'label': 'Esquerda (A)', 'key': 'a', 'color': Colors.blue},
-    {'label': 'Direita (D)', 'key': 'd', 'color': Colors.blue},
-    {'label': 'Buzina (H)', 'key': 'h', 'color': Colors.orange},
-    {'label': 'Farol (L)', 'key': 'l', 'color': Colors.yellow},
-    {'label': 'Freio de Mão (Space)', 'key': 'space', 'color': Colors.redAccent},
-    {'label': 'Visão 1 (1)', 'key': '1', 'color': Colors.grey},
+    {'id': 'f13', 'defaultLabel': 'Botão 1', 'sub': 'F13', 'color': Colors.blueAccent},
+    {'id': 'f14', 'defaultLabel': 'Botão 2', 'sub': 'F14', 'color': Colors.cyanAccent},
+    {'id': 'f15', 'defaultLabel': 'Botão 3', 'sub': 'F15', 'color': Colors.greenAccent},
+    {'id': 'f16', 'defaultLabel': 'Botão 4', 'sub': 'F16', 'color': Colors.tealAccent},
+    {'id': 'f17', 'defaultLabel': 'Botão 5', 'sub': 'F17', 'color': Colors.amberAccent},
+    {'id': 'f18', 'defaultLabel': 'Botão 6', 'sub': 'F18', 'color': Colors.orangeAccent},
+    {'id': 'f19', 'defaultLabel': 'Botão 7', 'sub': 'F19', 'color': Colors.deepOrangeAccent},
+    {'id': 'f20', 'defaultLabel': 'Botão 8', 'sub': 'F20', 'color': Colors.redAccent},
+    {'id': 'f21', 'defaultLabel': 'Botão 9', 'sub': 'F21', 'color': Colors.purpleAccent},
+    {'id': 'f22', 'defaultLabel': 'Botão 10', 'sub': 'F22', 'color': Colors.deepPurpleAccent},
+    {'id': 'f23', 'defaultLabel': 'Botão 11', 'sub': 'F23', 'color': Colors.indigoAccent},
+    {'id': 'f24', 'defaultLabel': 'Botão 12', 'sub': 'F24', 'color': Colors.pinkAccent},
   ];
+
+  final Map<String, String> _customLabels = {};
 
   @override
   void initState() {
     super.initState();
-    _loadIp();
+    _loadSettings();
     _initSocket();
   }
 
-  Future<void> _loadIp() async {
+  Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _serverIp = prefs.getString('serverIp') ?? '192.168.1.100';
+      for (final btn in _buttons) {
+        final id = btn['id'] as String;
+        final saved = prefs.getString('label_$id');
+        if (saved != null && saved.isNotEmpty) {
+          _customLabels[id] = saved;
+        }
+      }
     });
   }
 
@@ -73,29 +88,94 @@ class _DeckScreenState extends State<DeckScreen> {
     });
   }
 
-  Future<void> _initSocket() async {
-    try {
-      // Abre a porta UDP no app para enviar comandos
-      _udpSocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
-    } catch (e) {
-      debugPrint('Erro ao iniciar UDP: $e');
+  Future<void> _saveButtonLabel(String id, String newLabel) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (newLabel.trim().isEmpty) {
+      await prefs.remove('label_$id');
+      setState(() {
+        _customLabels.remove(id);
+      });
+    } else {
+      await prefs.setString('label_$id', newLabel.trim());
+      setState(() {
+        _customLabels[id] = newLabel.trim();
+      });
     }
   }
 
-  // Função central para envio dos comandos KeyDown e KeyUp
-  void _sendCommand(String key, String action) {
+  Future<void> _initSocket() async {
+    try {
+      _udpSocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+    } catch (e) {
+      debugPrint('Erro ao iniciar socket UDP: $e');
+    }
+  }
+
+  void _handleKey(String key, String action) {
+    if (action == 'down') {
+      HapticFeedback.lightImpact();
+      setState(() {
+        _pressedKeys.add(key);
+      });
+    } else {
+      setState(() {
+        _pressedKeys.remove(key);
+      });
+    }
+
     if (_udpSocket == null) return;
     try {
       final address = InternetAddress(_serverIp);
-      // Formato JSON compatível com nosso servidor Python
       final message = jsonEncode({'key': key, 'action': action});
       final data = utf8.encode(message);
-      
       _udpSocket!.send(data, address, _serverPort);
-      debugPrint('Enviado: $message para $_serverIp:$_serverPort');
     } catch (e) {
-      debugPrint('Erro ao enviar comando UDP: $e');
+      debugPrint('Erro ao enviar UDP: $e');
     }
+  }
+
+  void _showRenameDialog(String id, String currentLabel, String defaultLabel) {
+    final controller = TextEditingController(text: currentLabel == defaultLabel ? '' : currentLabel);
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Personalizar Nome ($id)'.toUpperCase()),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Nome do Botão',
+                  hintText: defaultLabel,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Deixe em branco para restaurar o nome padrão.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                _saveButtonLabel(id, controller.text);
+                Navigator.pop(context);
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showConfigModal() {
@@ -104,13 +184,14 @@ class _DeckScreenState extends State<DeckScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Conexão Host (PC)'),
+          title: const Text('Conexão com o PC'),
           content: TextField(
             controller: ipController,
             decoration: const InputDecoration(
-              labelText: 'Endereço IP do PC na rede',
-              hintText: 'ex: 192.168.0.10',
+              labelText: 'Endereço IP do Computador',
+              hintText: 'ex: 192.168.1.15',
               prefixIcon: Icon(Icons.wifi),
+              border: OutlineInputBorder(),
             ),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
@@ -142,13 +223,13 @@ class _DeckScreenState extends State<DeckScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Meu Stream Deck', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Stream Deck Extra Keys', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: _showConfigModal,
-            tooltip: 'Configurar IP do Host',
+            tooltip: 'Configurar IP do Computador',
           ),
         ],
       ),
@@ -157,24 +238,47 @@ class _DeckScreenState extends State<DeckScreen> {
           padding: const EdgeInsets.all(12.0),
           child: Column(
             children: [
-              Text(
-                'Host atual: $_serverIp',
-                style: const TextStyle(color: Colors.white70),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Host PC: $_serverIp:$_serverPort', style: const TextStyle(color: Colors.white70)),
+                    const Text('Segure para renomear ✏️', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Expanded(
                 child: GridView.builder(
-                  // Grid flexível para os botões do Deck
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2, // 2 colunas
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 1.3, // Formato mais retangular do botão
+                    crossAxisCount: 3, // 3 colunas para acomodar 12 botões confortavelmente
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                    childAspectRatio: 1.1,
                   ),
                   itemCount: _buttons.length,
                   itemBuilder: (context, index) {
                     final btn = _buttons[index];
-                    return _buildGameButton(btn['label'], btn['key'], btn['color']);
+                    final id = btn['id'] as String;
+                    final defaultLabel = btn['defaultLabel'] as String;
+                    final displayLabel = _customLabels[id] ?? defaultLabel;
+                    final sub = btn['sub'] as String;
+                    final color = btn['color'] as Color;
+                    final isPressed = _pressedKeys.contains(id);
+
+                    return _buildExtraKeyButton(
+                      id: id,
+                      label: displayLabel,
+                      defaultLabel: defaultLabel,
+                      sub: sub,
+                      color: color,
+                      isPressed: isPressed,
+                    );
                   },
                 ),
               ),
@@ -185,36 +289,80 @@ class _DeckScreenState extends State<DeckScreen> {
     );
   }
 
-  Widget _buildGameButton(String label, String keyName, Color color) {
-    // GestureDetector é crucial para separar o TapDown (pressionar) do TapUp/Cancel (soltar)
+  Widget _buildExtraKeyButton({
+    required String id,
+    required String label,
+    required String defaultLabel,
+    required String sub,
+    required Color color,
+    required bool isPressed,
+  }) {
     return GestureDetector(
-      onTapDown: (_) => _sendCommand(keyName, 'down'),
-      onTapUp: (_) => _sendCommand(keyName, 'up'),
-      onTapCancel: () => _sendCommand(keyName, 'up'),
-      child: Container(
+      onTapDown: (_) => _handleKey(id, 'down'),
+      onTapUp: (_) => _handleKey(id, 'up'),
+      onTapCancel: () => _handleKey(id, 'up'),
+      onLongPress: () => _showRenameDialog(id, label, defaultLabel),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 70),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.8), width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.1),
-              blurRadius: 8,
-              spreadRadius: 2,
+          color: isPressed ? color.withOpacity(0.4) : color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isPressed ? Colors.white : color.withOpacity(0.7),
+            width: isPressed ? 2.5 : 1.5,
+          ),
+          boxShadow: isPressed
+              ? [
+                  BoxShadow(
+                    color: color.withOpacity(0.5),
+                    blurRadius: 16,
+                    spreadRadius: 2,
+                  )
+                ]
+              : [
+                  BoxShadow(
+                    color: color.withOpacity(0.08),
+                    blurRadius: 6,
+                    spreadRadius: 1,
+                  )
+                ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: isPressed ? Colors.white : color,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black45,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                sub,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white70,
+                ),
+              ),
             ),
           ],
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-          textAlign: TextAlign.center,
         ),
       ),
     );
   }
 }
+

@@ -2,6 +2,7 @@ import socket
 import json
 import sys
 import os
+import subprocess
 
 # Configurações do servidor UDP
 HOST = '0.0.0.0'
@@ -10,27 +11,47 @@ PORT = 8080
 class InputController:
     """
     Controlador universal de entrada de teclado:
-    - No Windows: Utiliza pydirectinput (DirectInput scancodes) para compatibilidade com jogos (DirectX/OpenGL).
-    - No Linux: Utiliza a API nativa X11 / libXtst (XTestFakeKeyEvent) para injeção real de hardware no sistema.
+    - No Windows: Suporta teclas padrão via pydirectinput e teclas estendidas F13-F24 / Numpad via Win32 SendInput/keybd_event.
+    - No Linux: Suporta teclas padrão, F13-F24 e Numpad via X11 / libXtst (XTestFakeKeyEvent).
     """
     def __init__(self):
         self.mode = "none"
         self._init_backend()
 
     def _init_backend(self):
-        # 1. Windows: DirectInput via pydirectinput
+        # 1. Configuração Windows
         if sys.platform.startswith('win'):
+            self.mode = "windows"
+            try:
+                import ctypes
+                self.user32 = ctypes.windll.user32
+            except Exception:
+                self.user32 = None
+
             try:
                 import pydirectinput
                 pydirectinput.PAUSE = 0.0
                 self.pydirectinput = pydirectinput
-                self.mode = "windows_directinput"
-                return
             except ImportError:
-                print("AVISO [Windows]: 'pydirectinput' não está instalado.")
-                print("Execute: pip install -r requirements.txt")
+                self.pydirectinput = None
+                print("DICA [Windows]: Para jogos em DirectInput, instale: pip install -r requirements.txt")
 
-        # 2. Linux: X11 via libXtst / libX11 (nativo do sistema, sem precisar de pacotes extras)
+            # Mapeamento de teclas F13-F24 no Windows (Virtual Key Codes)
+            self._win_vk_map = {
+                f'f{i}': 0x7C + (i - 13) for i in range(13, 25) # 0x7C (F13) até 0x87 (F24)
+            }
+            # Mapeamento de Numpad
+            for i in range(10):
+                self._win_vk_map[f'numpad_{i}'] = 0x60 + i
+                self._win_vk_map[f'num_{i}'] = 0x60 + i
+            self._win_vk_map['numpad_enter'] = 0x0D
+            self._win_vk_map['numpad_add'] = 0x6B
+            self._win_vk_map['numpad_sub'] = 0x6D
+            self._win_vk_map['numpad_mul'] = 0x6A
+            self._win_vk_map['numpad_div'] = 0x6F
+            return
+
+        # 2. Configuração Linux (X11)
         if sys.platform.startswith('linux'):
             try:
                 import ctypes
@@ -49,6 +70,9 @@ class InputController:
                 self.xtst.XTestFakeKeyEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong]
                 self.x11.XFlush.argtypes = [ctypes.c_void_p]
 
+                # Garante que F13 a F24 estejam mapeados no X11
+                self._ensure_linux_f_keys()
+
                 display_env = os.environ.get('DISPLAY', ':0').encode('utf-8')
                 self.display = self.x11.XOpenDisplay(display_env)
                 if self.display:
@@ -63,25 +87,46 @@ class InputController:
                         'backspace': b'BackSpace',
                         'tab': b'Tab',
                         'shift': b'Shift_L',
-                        'shift_l': b'Shift_L',
-                        'shift_r': b'Shift_R',
                         'ctrl': b'Control_L',
-                        'ctrl_l': b'Control_L',
-                        'ctrl_r': b'Control_R',
-                        'control': b'Control_L',
                         'alt': b'Alt_L',
-                        'alt_l': b'Alt_L',
-                        'alt_r': b'Alt_R',
-                        'up': b'Up',
-                        'down': b'Down',
-                        'left': b'Left',
-                        'right': b'Right',
                     }
+                    # Mapeia F13 a F24
+                    for i in range(13, 25):
+                        self._alias_map[f'f{i}'] = f'F{i}'.encode('ascii')
+                    # Mapeia Numpad
+                    for i in range(10):
+                        self._alias_map[f'numpad_{i}'] = f'KP_{i}'.encode('ascii')
+                        self._alias_map[f'num_{i}'] = f'KP_{i}'.encode('ascii')
+                    self._alias_map['numpad_enter'] = b'KP_Enter'
+                    self._alias_map['numpad_add'] = b'KP_Add'
+                    self._alias_map['numpad_sub'] = b'KP_Subtract'
+                    self._alias_map['numpad_mul'] = b'KP_Multiply'
+                    self._alias_map['numpad_div'] = b'KP_Divide'
                     return
             except Exception as e:
                 print(f"AVISO [Linux]: Não foi possível inicializar injeção X11: {e}")
 
         self.mode = "log_only"
+
+    def _ensure_linux_f_keys(self):
+        """Garante que o X11 tenha keycodes atribuídos para F13 a F24."""
+        try:
+            d = self.x11.XOpenDisplay(os.environ.get('DISPLAY', ':0').encode('utf-8'))
+            if not d:
+                return
+            sym13 = self.x11.XStringToKeysym(b'F13')
+            kc13 = self.x11.XKeysymToKeycode(d, sym13)
+            self.x11.XCloseDisplay(d)
+            
+            # Se F13 ainda não tiver keycode no X11, aloca keycodes 183 a 194
+            if kc13 == 0:
+                cmd = []
+                for i in range(13, 25):
+                    kc = 183 + (i - 13)
+                    cmd.extend(['-e', f'keycode {kc} = F{i} F{i} F{i} F{i}'])
+                subprocess.run(['xmodmap'] + cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
 
     def _get_x11_keycode(self, key_str):
         if key_str in self._key_cache:
@@ -97,8 +142,18 @@ class InputController:
         return keycode
 
     def press(self, key_str):
-        if self.mode == "windows_directinput":
-            self.pydirectinput.keyDown(key_str)
+        # Windows
+        if self.mode == "windows":
+            if key_str in self._win_vk_map and self.user32:
+                vk = self._win_vk_map[key_str]
+                scan = self.user32.MapVirtualKeyA(vk, 0)
+                self.user32.keybd_event(vk, scan, 0, 0)
+            elif self.pydirectinput:
+                try:
+                    self.pydirectinput.keyDown(key_str)
+                except Exception:
+                    pass
+        # Linux
         elif self.mode == "linux_x11":
             code = self._get_x11_keycode(key_str)
             if code:
@@ -106,8 +161,18 @@ class InputController:
                 self.x11.XFlush(self.display)
 
     def release(self, key_str):
-        if self.mode == "windows_directinput":
-            self.pydirectinput.keyUp(key_str)
+        # Windows
+        if self.mode == "windows":
+            if key_str in self._win_vk_map and self.user32:
+                vk = self._win_vk_map[key_str]
+                scan = self.user32.MapVirtualKeyA(vk, 0)
+                self.user32.keybd_event(vk, scan, 2, 0) # 2 = KEYEVENTF_KEYUP
+            elif self.pydirectinput:
+                try:
+                    self.pydirectinput.keyUp(key_str)
+                except Exception:
+                    pass
+        # Linux
         elif self.mode == "linux_x11":
             code = self._get_x11_keycode(key_str)
             if code:
@@ -126,14 +191,14 @@ def start_server():
     
     print("=================================================")
     print(f" Servidor UDP iniciado na porta {PORT}")
-    if input_ctrl.mode == "windows_directinput":
-        print(" [MODO WINDOWS]: Injeção DirectInput ATIVA (jogos e sistema)")
+    if input_ctrl.mode == "windows":
+        print(" [MODO WINDOWS]: Injeção de Teclas F13-F24 e DirectInput ATIVA")
     elif input_ctrl.mode == "linux_x11":
-        print(" [MODO LINUX X11]: Injeção de hardware X11 ATIVA (jogos e sistema)")
+        print(" [MODO LINUX X11]: Injeção de Teclas Extras F13-F24 (Keycodes 183-194) ATIVA")
     else:
         print(" [MODO SOMENTE LOG]: Injeção no sistema desativada")
     print("=================================================")
-    print("Aguardando comandos do aplicativo...")
+    print("Aguardando comandos dos botões do Stream Deck...")
     print("DICA: Certifique-se de que o celular e o PC estão na mesma rede!")
     if sys.platform.startswith('win'):
         print("DICA WINDOWS: Permita o Python e a porta 8080 no Firewall do Windows.")
@@ -152,10 +217,14 @@ def start_server():
                     
                     if action == 'down':
                         input_ctrl.press(key)
-                        print(f"[{addr[0]}] TECLA PRESSIONADA (Down) : {key}")
+                        print(f"[{addr[0]}] TECLA EXTRA PRESSIONADA (Down) : {key.upper()}")
                     elif action == 'up':
                         input_ctrl.release(key)
-                        print(f"[{addr[0]}] TECLA SOLTA (Up)       : {key}")
+                        print(f"[{addr[0]}] TECLA EXTRA SOLTA (Up)       : {key.upper()}")
+                    elif action == 'tap':
+                        input_ctrl.press(key)
+                        input_ctrl.release(key)
+                        print(f"[{addr[0]}] TECLA EXTRA CLICADA (Tap)     : {key.upper()}")
                         
             except json.JSONDecodeError:
                 print(f"Mensagem inválida recebida de {addr}: {data}")
