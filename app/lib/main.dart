@@ -29,9 +29,9 @@ class StreamDeckApp extends StatelessWidget {
 }
 
 enum DeckMode {
-  fKeys,   // F13 a F24 (Streamlabs / OBS em background - sem conflito com jogos)
-  numpad,  // Numpad Extra (Minecraft / Jogos em DirectInput)
-  nav,     // Navegação / Mods (Insert, Delete, PageUp, PageDown, etc.)
+  generic, // F13 a F24 (Teclas de função estendidas independentes)
+  numpad,  // Numpad Completo (0 a 9 e operadores matemáticos)
+  sixPack, // Six Pack (Insert, Home, PageUp, Delete, End, PageDown + Controles de Mídia)
 }
 
 class DeckScreen extends StatefulWidget {
@@ -46,10 +46,10 @@ class _DeckScreenState extends State<DeckScreen> {
   final int _serverPort = 8080;
   RawDatagramSocket? _udpSocket;
   final Set<String> _pressedKeys = {};
-  DeckMode _currentMode = DeckMode.fKeys;
+  DeckMode _currentMode = DeckMode.generic;
 
-  // Modo F13 até F24: Perfeito para Streamlabs / OBS em background sem colidir com jogos
-  static const List<Map<String, dynamic>> _fKeysButtons = [
+  // Aba 1: Generic - Exclusivamente teclas de função F13 até F24
+  static const List<Map<String, dynamic>> _genericButtons = [
     {'id': 'f13', 'defaultLabel': 'Botão 1', 'sub': 'F13', 'color': Colors.blueAccent},
     {'id': 'f14', 'defaultLabel': 'Botão 2', 'sub': 'F14', 'color': Colors.cyanAccent},
     {'id': 'f15', 'defaultLabel': 'Botão 3', 'sub': 'F15', 'color': Colors.greenAccent},
@@ -64,46 +64,56 @@ class _DeckScreenState extends State<DeckScreen> {
     {'id': 'f24', 'defaultLabel': 'Botão 12', 'sub': 'F24', 'color': Colors.pinkAccent},
   ];
 
-  // Modo Numpad: Reconhecido nativamente por DirectInput (Minecraft Java, ETS2, Flight Sim)
+  // Aba 2: Numpad - Agrupa TODOS os botões referentes ao teclado numérico
   static const List<Map<String, dynamic>> _numpadButtons = [
-    {'id': 'numpad_1', 'defaultLabel': 'Botão 1', 'sub': 'Num 1', 'color': Colors.blueAccent},
-    {'id': 'numpad_2', 'defaultLabel': 'Botão 2', 'sub': 'Num 2', 'color': Colors.cyanAccent},
-    {'id': 'numpad_3', 'defaultLabel': 'Botão 3', 'sub': 'Num 3', 'color': Colors.greenAccent},
-    {'id': 'numpad_4', 'defaultLabel': 'Botão 4', 'sub': 'Num 4', 'color': Colors.tealAccent},
-    {'id': 'numpad_5', 'defaultLabel': 'Botão 5', 'sub': 'Num 5', 'color': Colors.amberAccent},
-    {'id': 'numpad_6', 'defaultLabel': 'Botão 6', 'sub': 'Num 6', 'color': Colors.orangeAccent},
-    {'id': 'numpad_7', 'defaultLabel': 'Botão 7', 'sub': 'Num 7', 'color': Colors.deepOrangeAccent},
-    {'id': 'numpad_8', 'defaultLabel': 'Botão 8', 'sub': 'Num 8', 'color': Colors.redAccent},
-    {'id': 'numpad_9', 'defaultLabel': 'Botão 9', 'sub': 'Num 9', 'color': Colors.purpleAccent},
-    {'id': 'numpad_0', 'defaultLabel': 'Botão 10', 'sub': 'Num 0', 'color': Colors.deepPurpleAccent},
-    {'id': 'numpad_add', 'defaultLabel': 'Botão 11', 'sub': 'Num +', 'color': Colors.indigoAccent},
-    {'id': 'numpad_enter', 'defaultLabel': 'Botão 12', 'sub': 'Num Enter', 'color': Colors.pinkAccent},
+    {'id': 'numpad_7', 'defaultLabel': 'Num 7', 'sub': 'Numpad', 'color': Colors.blueAccent},
+    {'id': 'numpad_8', 'defaultLabel': 'Num 8', 'sub': 'Numpad', 'color': Colors.blueAccent},
+    {'id': 'numpad_9', 'defaultLabel': 'Num 9', 'sub': 'Numpad', 'color': Colors.blueAccent},
+    {'id': 'numpad_div', 'defaultLabel': 'Num /', 'sub': 'Numpad', 'color': Colors.cyanAccent},
+
+    {'id': 'numpad_4', 'defaultLabel': 'Num 4', 'sub': 'Numpad', 'color': Colors.tealAccent},
+    {'id': 'numpad_5', 'defaultLabel': 'Num 5', 'sub': 'Numpad', 'color': Colors.tealAccent},
+    {'id': 'numpad_6', 'defaultLabel': 'Num 6', 'sub': 'Numpad', 'color': Colors.tealAccent},
+    {'id': 'numpad_mul', 'defaultLabel': 'Num *', 'sub': 'Numpad', 'color': Colors.cyanAccent},
+
+    {'id': 'numpad_1', 'defaultLabel': 'Num 1', 'sub': 'Numpad', 'color': Colors.greenAccent},
+    {'id': 'numpad_2', 'defaultLabel': 'Num 2', 'sub': 'Numpad', 'color': Colors.greenAccent},
+    {'id': 'numpad_3', 'defaultLabel': 'Num 3', 'sub': 'Numpad', 'color': Colors.greenAccent},
+    {'id': 'numpad_sub', 'defaultLabel': 'Num -', 'sub': 'Numpad', 'color': Colors.amberAccent},
+
+    {'id': 'numpad_0', 'defaultLabel': 'Num 0', 'sub': 'Numpad', 'color': Colors.orangeAccent},
+    {'id': 'numpad_dot', 'defaultLabel': 'Num .', 'sub': 'Numpad', 'color': Colors.orangeAccent},
+    {'id': 'numpad_enter', 'defaultLabel': 'Num Enter', 'sub': 'Numpad', 'color': Colors.redAccent},
+    {'id': 'numpad_add', 'defaultLabel': 'Num +', 'sub': 'Numpad', 'color': Colors.amberAccent},
   ];
 
-  // Modo Navegação / Mods: Insert, Delete, PageUp, PageDown para gerenciamento de mods no Minecraft
-  static const List<Map<String, dynamic>> _navButtons = [
-    {'id': 'insert', 'defaultLabel': 'Botão 1', 'sub': 'Insert', 'color': Colors.blueAccent},
-    {'id': 'delete', 'defaultLabel': 'Botão 2', 'sub': 'Delete', 'color': Colors.cyanAccent},
-    {'id': 'pageup', 'defaultLabel': 'Botão 3', 'sub': 'PageUp', 'color': Colors.greenAccent},
-    {'id': 'pagedown', 'defaultLabel': 'Botão 4', 'sub': 'PageDown', 'color': Colors.tealAccent},
-    {'id': 'home', 'defaultLabel': 'Botão 5', 'sub': 'Home', 'color': Colors.amberAccent},
-    {'id': 'end', 'defaultLabel': 'Botão 6', 'sub': 'End', 'color': Colors.orangeAccent},
-    {'id': 'numpad_div', 'defaultLabel': 'Botão 7', 'sub': 'Num /', 'color': Colors.deepOrangeAccent},
-    {'id': 'numpad_mul', 'defaultLabel': 'Botão 8', 'sub': 'Num *', 'color': Colors.redAccent},
-    {'id': 'numpad_sub', 'defaultLabel': 'Botão 9', 'sub': 'Num -', 'color': Colors.purpleAccent},
-    {'id': 'numpad_dot', 'defaultLabel': 'Botão 10', 'sub': 'Num .', 'color': Colors.deepPurpleAccent},
-    {'id': 'scroll_lock', 'defaultLabel': 'Botão 11', 'sub': 'ScrollLock', 'color': Colors.indigoAccent},
-    {'id': 'pause', 'defaultLabel': 'Botão 12', 'sub': 'Pause', 'color': Colors.pinkAccent},
+  // Aba 3: Six Pack - Bloco clássico de 6 teclas (Insert, Home, PageUp, Delete, End, PageDown) + Controles de Mídia
+  static const List<Map<String, dynamic>> _sixPackButtons = [
+    // Bloco Clássico de Navegação (Six Pack)
+    {'id': 'insert', 'defaultLabel': 'Insert', 'sub': 'Nav', 'color': Colors.blueAccent},
+    {'id': 'home', 'defaultLabel': 'Home', 'sub': 'Nav', 'color': Colors.cyanAccent},
+    {'id': 'pageup', 'defaultLabel': 'Page Up', 'sub': 'Nav', 'color': Colors.greenAccent},
+    {'id': 'delete', 'defaultLabel': 'Delete', 'sub': 'Nav', 'color': Colors.tealAccent},
+    {'id': 'end', 'defaultLabel': 'End', 'sub': 'Nav', 'color': Colors.amberAccent},
+    {'id': 'pagedown', 'defaultLabel': 'Page Down', 'sub': 'Nav', 'color': Colors.orangeAccent},
+
+    // Controles de Mídia do Sistema
+    {'id': 'media_prev', 'defaultLabel': 'Previous', 'sub': 'Media', 'color': Colors.purpleAccent, 'icon': Icons.skip_previous_rounded},
+    {'id': 'media_play_pause', 'defaultLabel': 'Play / Pause', 'sub': 'Media', 'color': Colors.deepPurpleAccent, 'icon': Icons.play_arrow_rounded},
+    {'id': 'media_next', 'defaultLabel': 'Next', 'sub': 'Media', 'color': Colors.indigoAccent, 'icon': Icons.skip_next_rounded},
+    {'id': 'volume_down', 'defaultLabel': 'Vol -', 'sub': 'Media', 'color': Colors.deepOrangeAccent, 'icon': Icons.volume_down_rounded},
+    {'id': 'volume_mute', 'defaultLabel': 'Mute', 'sub': 'Media', 'color': Colors.redAccent, 'icon': Icons.volume_off_rounded},
+    {'id': 'volume_up', 'defaultLabel': 'Vol +', 'sub': 'Media', 'color': Colors.pinkAccent, 'icon': Icons.volume_up_rounded},
   ];
 
   List<Map<String, dynamic>> get _currentButtons {
     switch (_currentMode) {
-      case DeckMode.fKeys:
-        return _fKeysButtons;
+      case DeckMode.generic:
+        return _genericButtons;
       case DeckMode.numpad:
         return _numpadButtons;
-      case DeckMode.nav:
-        return _navButtons;
+      case DeckMode.sixPack:
+        return _sixPackButtons;
     }
   }
 
@@ -120,16 +130,16 @@ class _DeckScreenState extends State<DeckScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _serverIp = prefs.getString('serverIp') ?? '192.168.1.100';
-      final modeStr = prefs.getString('deckMode') ?? 'fKeys';
+      final modeStr = prefs.getString('deckMode') ?? 'generic';
       if (modeStr == 'numpad') {
         _currentMode = DeckMode.numpad;
-      } else if (modeStr == 'nav') {
-        _currentMode = DeckMode.nav;
+      } else if (modeStr == 'sixPack' || modeStr == 'nav') {
+        _currentMode = DeckMode.sixPack;
       } else {
-        _currentMode = DeckMode.fKeys;
+        _currentMode = DeckMode.generic;
       }
 
-      for (final btn in [..._fKeysButtons, ..._numpadButtons, ..._navButtons]) {
+      for (final btn in [..._genericButtons, ..._numpadButtons, ..._sixPackButtons]) {
         final id = btn['id'] as String;
         final saved = prefs.getString('label_$id');
         if (saved != null && saved.isNotEmpty) {
@@ -151,14 +161,14 @@ class _DeckScreenState extends State<DeckScreen> {
     final prefs = await SharedPreferences.getInstance();
     String modeStr;
     switch (mode) {
-      case DeckMode.fKeys:
-        modeStr = 'fKeys';
+      case DeckMode.generic:
+        modeStr = 'generic';
         break;
       case DeckMode.numpad:
         modeStr = 'numpad';
         break;
-      case DeckMode.nav:
-        modeStr = 'nav';
+      case DeckMode.sixPack:
+        modeStr = 'sixPack';
         break;
     }
     await prefs.setString('deckMode', modeStr);
@@ -344,25 +354,25 @@ class _DeckScreenState extends State<DeckScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              // Alternador de Perfis/Modos de Teclas (3 modos responsivos)
+              // Alternador de Perfis/Modos de Teclas (3 modos responsivos e agnósticos)
               SizedBox(
                 width: double.infinity,
                 child: SegmentedButton<DeckMode>(
                   segments: const [
                     ButtonSegment<DeckMode>(
-                      value: DeckMode.fKeys,
-                      icon: Icon(Icons.live_tv_rounded, size: 14),
-                      label: Text('Streamlabs (F13–F24)', style: TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis),
+                      value: DeckMode.generic,
+                      icon: Icon(Icons.grid_view_rounded, size: 14),
+                      label: Text('Generic', style: TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
                     ),
                     ButtonSegment<DeckMode>(
                       value: DeckMode.numpad,
-                      icon: Icon(Icons.pin_rounded, size: 14),
-                      label: Text('Minecraft (Numpad)', style: TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis),
+                      icon: Icon(Icons.dialpad_rounded, size: 14),
+                      label: Text('Numpad', style: TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
                     ),
                     ButtonSegment<DeckMode>(
-                      value: DeckMode.nav,
-                      icon: Icon(Icons.navigation_rounded, size: 14),
-                      label: Text('Mods (Navegação)', style: TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis),
+                      value: DeckMode.sixPack,
+                      icon: Icon(Icons.apps_rounded, size: 14),
+                      label: Text('Six Pack', style: TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
                     ),
                   ],
                   selected: {_currentMode},
@@ -378,19 +388,19 @@ class _DeckScreenState extends State<DeckScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              // Banner informativo do modo ativo e prevenção de conflitos
+              // Banner informativo do modo ativo (genérico e focado nas teclas)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: _currentMode == DeckMode.fKeys
+                  color: _currentMode == DeckMode.generic
                       ? Colors.blueAccent.withValues(alpha: 0.12)
                       : (_currentMode == DeckMode.numpad
                           ? Colors.amberAccent.withValues(alpha: 0.12)
                           : Colors.purpleAccent.withValues(alpha: 0.12)),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: _currentMode == DeckMode.fKeys
+                    color: _currentMode == DeckMode.generic
                         ? Colors.blueAccent.withValues(alpha: 0.3)
                         : (_currentMode == DeckMode.numpad
                             ? Colors.amberAccent.withValues(alpha: 0.3)
@@ -401,13 +411,13 @@ class _DeckScreenState extends State<DeckScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      _currentMode == DeckMode.fKeys
+                      _currentMode == DeckMode.generic
                           ? Icons.info_outline
                           : (_currentMode == DeckMode.numpad
-                              ? Icons.warning_amber_rounded
-                              : Icons.extension_rounded),
+                              ? Icons.dialpad_rounded
+                              : Icons.navigation_rounded),
                       size: 16,
-                      color: _currentMode == DeckMode.fKeys
+                      color: _currentMode == DeckMode.generic
                           ? Colors.lightBlueAccent
                           : (_currentMode == DeckMode.numpad
                               ? Colors.amberAccent
@@ -416,14 +426,14 @@ class _DeckScreenState extends State<DeckScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _currentMode == DeckMode.fKeys
-                            ? 'Ideal para Streamlabs em 2º plano: atalhos de live sem conflito com o jogo.'
+                        _currentMode == DeckMode.generic
+                            ? 'Teclas de função estendidas (F13 a F24) independentes do teclado físico.'
                             : (_currentMode == DeckMode.numpad
-                                ? 'DirectInput ativo para Minecraft: atenção se já usa teclas do Numpad físico para mods.'
-                                : 'Teclas de navegação (Insert, PageUp...) para gerenciar mods de administrador no Minecraft.'),
+                                ? 'Teclado numérico completo (0 a 9 e operadores matemáticos).'
+                                : 'Bloco de navegação (Insert, Delete, PageUp...) e controles de mídia do sistema.'),
                         style: TextStyle(
                           fontSize: 11,
-                          color: _currentMode == DeckMode.fKeys
+                          color: _currentMode == DeckMode.generic
                               ? Colors.white70
                               : (_currentMode == DeckMode.numpad
                                   ? Colors.amber.shade200
@@ -435,14 +445,14 @@ class _DeckScreenState extends State<DeckScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              // Grade dos 12 botões interativos
+              // Grade de botões interativos
               Expanded(
                 child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3, // 3 colunas para acomodar 12 botões confortavelmente
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 0.95,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: _currentMode == DeckMode.numpad ? 4 : 3,
+                    crossAxisSpacing: _currentMode == DeckMode.numpad ? 8 : 10,
+                    mainAxisSpacing: _currentMode == DeckMode.numpad ? 8 : 10,
+                    childAspectRatio: _currentMode == DeckMode.numpad ? 0.95 : 1.0,
                   ),
                   itemCount: _currentButtons.length,
                   itemBuilder: (context, index) {
@@ -452,6 +462,7 @@ class _DeckScreenState extends State<DeckScreen> {
                     final displayLabel = _customLabels[id] ?? defaultLabel;
                     final sub = btn['sub'] as String;
                     final color = btn['color'] as Color;
+                    final icon = btn['icon'] as IconData?;
                     final isPressed = _pressedKeys.contains(id);
 
                     return _buildExtraKeyButton(
@@ -460,6 +471,7 @@ class _DeckScreenState extends State<DeckScreen> {
                       defaultLabel: defaultLabel,
                       sub: sub,
                       color: color,
+                      icon: icon,
                       isPressed: isPressed,
                     );
                   },
@@ -479,6 +491,7 @@ class _DeckScreenState extends State<DeckScreen> {
     required String sub,
     required Color color,
     required bool isPressed,
+    IconData? icon,
   }) {
     return GestureDetector(
       onTapDown: (_) => _handleKey(id, 'down'),
@@ -515,37 +528,47 @@ class _DeckScreenState extends State<DeckScreen> {
         ),
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         alignment: Alignment.center,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: isPressed ? Colors.white : color,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 3),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: BoxDecoration(
-                color: Colors.black45,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                sub,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white70,
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, color: isPressed ? Colors.white : color, size: 20),
+                  const SizedBox(height: 2),
+                ],
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: _currentMode == DeckMode.numpad ? 13 : 14,
+                    fontWeight: FontWeight.bold,
+                    color: isPressed ? Colors.white : color,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
+                const SizedBox(height: 3),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.black45,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    sub,
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

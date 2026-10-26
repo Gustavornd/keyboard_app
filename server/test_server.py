@@ -154,6 +154,20 @@ class TestServerWin32Structures(unittest.TestCase):
         # Up: count=1, vk=0x61, scan=0x4F, dwFlags=KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP
         self.assertEqual(captured_inputs[1], (1, 0x61, 0x4F, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, expected_size))
 
+    def test_media_keys_present_and_valid(self):
+        """Teclas de mídia devem estar configuradas no WIN_KEY_CONFIG."""
+        media_keys = [
+            'media_play_pause', 'play_pause', 'media_next', 'next_track',
+            'media_prev', 'prev_track', 'media_stop', 'volume_mute',
+            'volume_up', 'volume_down'
+        ]
+        for mk in media_keys:
+            self.assertIn(mk, WIN_KEY_CONFIG)
+            vk, scan, is_ext, use_scan = WIN_KEY_CONFIG[mk]
+            self.assertGreater(vk, 0)
+            self.assertTrue(is_ext, f"{mk} deve ter is_extended=True")
+            self.assertFalse(use_scan, f"{mk} não deve ter use_scancode=True")
+
     def test_mock_send_input_failure_does_not_crash(self):
         """Verifica se falha de SendInput não causa AttributeError por GetLastError."""
         ctrl = InputController()

@@ -124,6 +124,19 @@ WIN_KEY_CONFIG = {
     'page_down': (0x22, 0x51, True, True),
     'scroll_lock': (0x91, 0x46, False, True),
     'pause': (0x13, 0x45, True, True),
+
+    # Teclas de Mídia Globais (Media Keys)
+    # Enviadas com Virtual Key e flag KEYEVENTF_EXTENDEDKEY para controle em segundo plano
+    'media_play_pause': (0xB3, 0x22, True, False),
+    'play_pause': (0xB3, 0x22, True, False),
+    'media_next': (0xB0, 0x19, True, False),
+    'next_track': (0xB0, 0x19, True, False),
+    'media_prev': (0xB1, 0x10, True, False),
+    'prev_track': (0xB1, 0x10, True, False),
+    'media_stop': (0xB2, 0x24, True, False),
+    'volume_mute': (0xAD, 0x20, True, False),
+    'volume_up': (0xAF, 0x30, True, False),
+    'volume_down': (0xAE, 0x2E, True, False),
 }
 
 def build_win_input(vk: int, scan: int, is_extended: bool, is_up: bool, use_scancode: bool) -> INPUT:
@@ -240,6 +253,16 @@ class InputController:
                     self._alias_map['page_down'] = b'Page_Down'
                     self._alias_map['scroll_lock'] = b'Scroll_Lock'
                     self._alias_map['pause'] = b'Pause'
+                    self._alias_map['media_play_pause'] = b'XF86AudioPlay'
+                    self._alias_map['play_pause'] = b'XF86AudioPlay'
+                    self._alias_map['media_next'] = b'XF86AudioNext'
+                    self._alias_map['next_track'] = b'XF86AudioNext'
+                    self._alias_map['media_prev'] = b'XF86AudioPrev'
+                    self._alias_map['prev_track'] = b'XF86AudioPrev'
+                    self._alias_map['media_stop'] = b'XF86AudioStop'
+                    self._alias_map['volume_mute'] = b'XF86AudioMute'
+                    self._alias_map['volume_up'] = b'XF86AudioRaiseVolume'
+                    self._alias_map['volume_down'] = b'XF86AudioLowerVolume'
                     return
             except Exception as e:
                 print(f"AVISO [Linux]: Não foi possível inicializar injeção X11: {e}")
@@ -383,7 +406,7 @@ def start_server():
             print(" [ADMIN]: Executando com privilégios de Administrador (UIPI bypassed).")
         else:
             print(" [AVISO]: Executando sem privilégios de Administrador.")
-            print("          Se o Streamlabs ou o jogo estiver rodando como Administrador,")
+            print("          Se o jogo ou aplicativo de destino estiver rodando como Administrador,")
             print("          execute este terminal também como Administrador!")
     elif input_ctrl.mode == "linux_x11":
         print(" [MODO LINUX X11]: Injeção de Teclas Extras F13-F24 (Keycodes 183-194) ATIVA")

@@ -17,58 +17,78 @@ void main() {
     });
   }
 
-  testWidgets('StreamDeckApp smoke test - modo padrao F13-F24', (WidgetTester tester) async {
+  testWidgets('StreamDeckApp smoke test - modo padrao Generic (F13-F24)', (WidgetTester tester) async {
     configureViewport(tester);
     await tester.pumpWidget(const StreamDeckApp());
     await tester.pumpAndSettle();
 
     expect(find.text('Stream Deck Extra Keys'), findsOneWidget);
-    expect(find.text('Streamlabs (F13–F24)'), findsOneWidget);
-    expect(find.text('Minecraft (Numpad)'), findsOneWidget);
-    expect(find.text('Mods (Navegação)'), findsOneWidget);
+    expect(find.text('Generic'), findsOneWidget);
+    expect(find.text('Numpad'), findsOneWidget);
+    expect(find.text('Six Pack'), findsOneWidget);
     expect(find.text('Botão 1'), findsOneWidget);
     expect(find.text('F13'), findsOneWidget);
     expect(find.text('F24'), findsOneWidget);
   });
 
-  testWidgets('Alternancia para Modo Numpad (Minecraft)', (WidgetTester tester) async {
+  testWidgets('Alternancia para Modo Numpad com todas as 16 teclas', (WidgetTester tester) async {
     configureViewport(tester);
     await tester.pumpWidget(const StreamDeckApp());
     await tester.pumpAndSettle();
 
-    // Toca no segmento Minecraft (Numpad)
-    final numpadSegment = find.text('Minecraft (Numpad)');
+    // Toca no segmento Numpad
+    final numpadSegment = find.text('Numpad');
     expect(numpadSegment, findsOneWidget);
     await tester.tap(numpadSegment);
     await tester.pumpAndSettle();
 
-    // Agora deve exibir teclas numpad
+    // Deve exibir todas as teclas do numpad e operadores
+    expect(find.text('Num 7'), findsOneWidget);
+    expect(find.text('Num 8'), findsOneWidget);
+    expect(find.text('Num 9'), findsOneWidget);
+    expect(find.text('Num /'), findsOneWidget);
+    expect(find.text('Num 4'), findsOneWidget);
+    expect(find.text('Num 5'), findsOneWidget);
+    expect(find.text('Num 6'), findsOneWidget);
+    expect(find.text('Num *'), findsOneWidget);
     expect(find.text('Num 1'), findsOneWidget);
     expect(find.text('Num 2'), findsOneWidget);
-    expect(find.text('Num +'), findsOneWidget);
+    expect(find.text('Num 3'), findsOneWidget);
+    expect(find.text('Num -'), findsOneWidget);
+    expect(find.text('Num 0'), findsOneWidget);
+    expect(find.text('Num .'), findsOneWidget);
     expect(find.text('Num Enter'), findsOneWidget);
-    expect(find.textContaining('DirectInput ativo para Minecraft'), findsOneWidget);
+    expect(find.text('Num +'), findsOneWidget);
+    expect(find.textContaining('Teclado numérico completo'), findsOneWidget);
   });
 
-  testWidgets('Alternancia para Modo Navegacao (Mods)', (WidgetTester tester) async {
+  testWidgets('Alternancia para Modo Six Pack com navegacao e controles de midia', (WidgetTester tester) async {
     configureViewport(tester);
     await tester.pumpWidget(const StreamDeckApp());
     await tester.pumpAndSettle();
 
-    // Toca no segmento Mods (Navegação)
-    final navSegment = find.text('Mods (Navegação)');
-    expect(navSegment, findsOneWidget);
-    await tester.tap(navSegment);
+    // Toca no segmento Six Pack
+    final sixPackSegment = find.text('Six Pack');
+    expect(sixPackSegment, findsOneWidget);
+    await tester.tap(sixPackSegment);
     await tester.pumpAndSettle();
 
-    // Deve exibir teclas de navegação
+    // Deve exibir teclas classicas de navegacao
     expect(find.text('Insert'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Page Up'), findsOneWidget);
     expect(find.text('Delete'), findsOneWidget);
-    expect(find.text('PageUp'), findsOneWidget);
-    expect(find.text('PageDown'), findsOneWidget);
-    expect(find.text('ScrollLock'), findsOneWidget);
-    expect(find.text('Pause'), findsOneWidget);
-    expect(find.textContaining('Teclas de navegação (Insert, PageUp...)'), findsOneWidget);
+    expect(find.text('End'), findsOneWidget);
+    expect(find.text('Page Down'), findsOneWidget);
+
+    // Deve exibir controles de midia do sistema
+    expect(find.text('Previous'), findsOneWidget);
+    expect(find.text('Play / Pause'), findsOneWidget);
+    expect(find.text('Next'), findsOneWidget);
+    expect(find.text('Vol -'), findsOneWidget);
+    expect(find.text('Mute'), findsOneWidget);
+    expect(find.text('Vol +'), findsOneWidget);
+    expect(find.textContaining('Bloco de navegação'), findsOneWidget);
   });
 
   testWidgets('Responsividade em tela estreita de smartphone (360x640 e 320x480 sem overflow)', (WidgetTester tester) async {
@@ -83,11 +103,11 @@ void main() {
       expect(tester.takeException(), isNull);
 
       // Alterna entre os modos para garantir responsividade em todos
-      await tester.tap(find.text('Minecraft (Numpad)'));
+      await tester.tap(find.text('Numpad'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.text('Mods (Navegação)'));
+      await tester.tap(find.text('Six Pack'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     }
@@ -126,15 +146,15 @@ void main() {
   testWidgets('Carregamento de preferencias salvas do SharedPreferences', (WidgetTester tester) async {
     configureViewport(tester);
     SharedPreferences.setMockInitialValues({
-      'deckMode': 'nav',
-      'label_insert': 'Mod Menu Admin',
+      'deckMode': 'sixPack',
+      'label_insert': 'Ação Customizada',
     });
 
     await tester.pumpWidget(const StreamDeckApp());
     await tester.pumpAndSettle();
 
-    // Deve iniciar no modo Navegação com o nome personalizado
-    expect(find.text('Mod Menu Admin'), findsOneWidget);
-    expect(find.text('Insert'), findsOneWidget);
+    // Deve iniciar no modo Six Pack com o nome personalizado
+    expect(find.text('Ação Customizada'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
   });
 }
