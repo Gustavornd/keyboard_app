@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -113,7 +114,7 @@ void main() {
     }
   });
 
-  testWidgets('Renomear botao via toque longo (long press)', (WidgetTester tester) async {
+  testWidgets('Renomear botao via toque longo na Tela Principal', (WidgetTester tester) async {
     configureViewport(tester);
     await tester.pumpWidget(const StreamDeckApp());
     await tester.pumpAndSettle();
@@ -143,18 +144,196 @@ void main() {
     expect(find.text('Cena Live'), findsOneWidget);
   });
 
-  testWidgets('Carregamento de preferencias salvas do SharedPreferences', (WidgetTester tester) async {
+  testWidgets('Criar nova View Personalizada pelo Drawer lateral', (WidgetTester tester) async {
     configureViewport(tester);
+    await tester.pumpWidget(const StreamDeckApp());
+    await tester.pumpAndSettle();
+
+    // Abre o Drawer lateral pelo ícone de menu
+    final drawerFinder = find.byTooltip('Open navigation menu');
+    expect(drawerFinder, findsOneWidget);
+    await tester.tap(drawerFinder);
+    await tester.pumpAndSettle();
+
+    // Deve exibir itens do Drawer
+    expect(find.text('Stream Deck'), findsOneWidget);
+    expect(find.text('Tela Principal'), findsOneWidget);
+    expect(find.text('Criar Nova View'), findsOneWidget);
+
+    // Toca em "Criar Nova View"
+    await tester.tap(find.text('Criar Nova View'));
+    await tester.pumpAndSettle();
+
+    // Dialog aberto
+    expect(find.text('CRIAR NOVA VIEW'), findsOneWidget);
+    final nameField = find.byType(TextField);
+    expect(nameField, findsOneWidget);
+
+    // Digita nome "Live Stream" e clica em Criar
+    await tester.enterText(nameField, 'Live Stream');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Criar'));
+    await tester.pumpAndSettle();
+
+    // A AppBar agora exibe "Live Stream" e a view está vazia inicialmente
+    expect(find.text('Live Stream'), findsOneWidget);
+    expect(find.text('Nenhum botão nesta view'), findsOneWidget);
+    expect(find.text('Adicionar Teclas (+)'), findsOneWidget);
+  });
+
+  testWidgets('Adicionar teclas multimodais na View Personalizada e testar eventos de toque', (WidgetTester tester) async {
+    configureViewport(tester);
+    await tester.pumpWidget(const StreamDeckApp());
+    await tester.pumpAndSettle();
+
+    // Abre drawer e cria view "Simulador"
+    await tester.tap(find.byTooltip('Open navigation menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Criar Nova View'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Simulador');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Criar'));
+    await tester.pumpAndSettle();
+
+    // Clica em Adicionar Teclas (+)
+    await tester.tap(find.text('Adicionar Teclas (+)'));
+    await tester.pumpAndSettle();
+
+    // Bottom sheet de adição aberto
+    expect(find.text('Adicionar Teclas (Simulador)'), findsOneWidget);
+
+    // Adiciona F13 (Botão 1) e Num 2
+    final btn1Chip = find.widgetWithText(ActionChip, 'Botão 1');
+    expect(btn1Chip, findsOneWidget);
+    await tester.tap(btn1Chip);
+    await tester.pumpAndSettle();
+
+    final num2Chip = find.widgetWithText(ActionChip, 'Num 2');
+    expect(num2Chip, findsOneWidget);
+    await tester.tap(num2Chip);
+    await tester.pumpAndSettle();
+
+    // Fecha o modal
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+
+    // Na view "Simulador", agora ambos os botões aparecem juntos na mesma tela!
+    expect(find.text('Botão 1'), findsOneWidget);
+    expect(find.text('Num 2'), findsOneWidget);
+
+    // CRÍTICO: Testa preservação de eventos de toque contínuo (GestureDetector onTapDown / onTapUp)
+    final gestureButton = find.text('Botão 1');
+    final gesture = await tester.startGesture(tester.getCenter(gestureButton));
+    await tester.pump(const Duration(milliseconds: 50));
+    // Tecla pressionada com sucesso sem exceção
+    expect(tester.takeException(), isNull);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Renomeacao contextual (alias) exclusivo da View Personalizada', (WidgetTester tester) async {
+    configureViewport(tester);
+
+    // Inicializa com um perfil já salvo
+    final initialProfiles = [
+      {
+        'id': 'profile_live',
+        'name': 'Live Stream',
+        'buttonKeys': ['f13', 'numpad_2'],
+        'customLabels': <String, String>{},
+      }
+    ];
+
     SharedPreferences.setMockInitialValues({
-      'deckMode': 'sixPack',
-      'label_insert': 'Ação Customizada',
+      'custom_profiles_v1': jsonEncode(initialProfiles),
+      'active_profile_id': 'profile_live',
     });
 
     await tester.pumpWidget(const StreamDeckApp());
     await tester.pumpAndSettle();
 
-    // Deve iniciar no modo Six Pack com o nome personalizado
-    expect(find.text('Ação Customizada'), findsOneWidget);
-    expect(find.text('Home'), findsOneWidget);
+    // Estamos na view "Live Stream"
+    expect(find.text('Live Stream'), findsOneWidget);
+    expect(find.text('Botão 1'), findsOneWidget);
+
+    // Segura "Botão 1" para abrir menu de contexto da view
+    await tester.longPress(find.text('Botão 1'));
+    await tester.pumpAndSettle();
+
+    // Modal de opções da tecla na view
+    expect(find.text('OPÇÕES DA TECLA (F13)'), findsOneWidget);
+    expect(find.text('Personalizar Nome nesta View'), findsOneWidget);
+    expect(find.text('Remover desta View'), findsOneWidget);
+
+    // Toca em Personalizar Nome nesta View
+    await tester.tap(find.text('Personalizar Nome nesta View'));
+    await tester.pumpAndSettle();
+
+    // Digita alias contextual
+    expect(find.text('NOME NO PERFIL (F13)'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Trocar Cena');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+
+    // Na view atual, o botão agora se chama "Trocar Cena"
+    expect(find.text('Trocar Cena'), findsOneWidget);
+
+    // Abre Drawer e volta para a Tela Principal
+    await tester.tap(find.byTooltip('Open navigation menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tela Principal'));
+    await tester.pumpAndSettle();
+
+    // Na Tela Principal, o botão F13 NÃO tem o nome "Trocar Cena", mantendo seu nome original!
+    expect(find.text('Stream Deck Extra Keys'), findsOneWidget);
+    expect(find.text('Botão 1'), findsOneWidget);
+    expect(find.text('Trocar Cena'), findsNothing);
+  });
+
+  testWidgets('Excluir View Personalizada e retornar para a Tela Principal', (WidgetTester tester) async {
+    configureViewport(tester);
+
+    final initialProfiles = [
+      {
+        'id': 'profile_teste',
+        'name': 'Perfil Teste',
+        'buttonKeys': ['f13'],
+        'customLabels': <String, String>{},
+      }
+    ];
+
+    SharedPreferences.setMockInitialValues({
+      'custom_profiles_v1': jsonEncode(initialProfiles),
+      'active_profile_id': 'profile_teste',
+    });
+
+    await tester.pumpWidget(const StreamDeckApp());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Perfil Teste'), findsOneWidget);
+
+    // Abre Drawer
+    await tester.tap(find.byTooltip('Open navigation menu'));
+    await tester.pumpAndSettle();
+
+    // Toca no menu do perfil (três pontos)
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+
+    // Seleciona Excluir View
+    await tester.tap(find.text('Excluir View'));
+    await tester.pumpAndSettle();
+
+    // Confirma exclusão no dialog
+    expect(find.text('EXCLUIR VIEW'), findsOneWidget);
+    await tester.tap(find.text('Excluir'));
+    await tester.pumpAndSettle();
+
+    // Fecha o Drawer tocando na tela ou navegando
+    // Ao excluir o perfil ativo, automaticamente retorna para a Tela Principal
+    expect(find.text('Stream Deck Extra Keys'), findsOneWidget);
   });
 }
