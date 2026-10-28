@@ -118,3 +118,9 @@ flutter build apk --release
 ## 🔒 Segurança de Rede
 
 O servidor utiliza comunicação por UDP na rede local sem requisição de senha para garantir mínima latência em jogos. **Recomenda-se utilizar o sistema exclusivamente em redes privadas e confiáveis** (como a rede Wi-Fi da sua residência) ou via cabo USB (`adb reverse`). Evite executá-lo em redes Wi-Fi públicas compartilhadas.
+
+---
+
+## 📄 License
+
+This project is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). Free for personal, research, and noncommercial use.
