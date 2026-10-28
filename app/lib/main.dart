@@ -10,8 +10,7 @@ void main() {
 }
 
 class StreamDeckApp extends StatelessWidget {
-  final bool autoDiscover;
-  const StreamDeckApp({super.key, this.autoDiscover = true});
+  const StreamDeckApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -25,14 +24,14 @@ class StreamDeckApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: DeckScreen(autoDiscover: autoDiscover),
+      home: const DeckScreen(),
     );
   }
 }
 
 enum DeckMode {
   generic, // F13 a F24 (Teclas de função estendidas independentes)
-  numpad,  // Numpad Completo (0 a 9 e operadores matemáticos)
+  numpad, // Numpad Completo (0 a 9 e operadores matemáticos)
   sixPack, // Six Pack (Insert, Home, PageUp, Delete, End, PageDown + Controles de Mídia)
 }
 
@@ -51,25 +50,25 @@ class DeckProfile {
   }) : customLabels = customLabels ?? {};
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'buttonKeys': buttonKeys,
-    'customLabels': customLabels,
-  };
+        'id': id,
+        'name': name,
+        'buttonKeys': buttonKeys,
+        'customLabels': customLabels,
+      };
 
   factory DeckProfile.fromJson(Map<String, dynamic> json) {
     return DeckProfile(
       id: json['id'] as String,
       name: json['name'] as String,
       buttonKeys: List<String>.from(json['buttonKeys'] as List? ?? []),
-      customLabels: Map<String, String>.from(json['customLabels'] as Map? ?? {}),
+      customLabels:
+          Map<String, String>.from(json['customLabels'] as Map? ?? {}),
     );
   }
 }
 
 class DeckScreen extends StatefulWidget {
-  final bool autoDiscover;
-  const DeckScreen({super.key, this.autoDiscover = true});
+  const DeckScreen({super.key});
 
   @override
   State<DeckScreen> createState() => _DeckScreenState();
@@ -99,65 +98,272 @@ class _DeckScreenState extends State<DeckScreen> {
 
   // Aba 1: Generic - Exclusivamente teclas de função F13 até F24
   static const List<Map<String, dynamic>> _genericButtons = [
-    {'id': 'f13', 'defaultLabel': 'Botão 1', 'sub': 'F13', 'color': Colors.blueAccent},
-    {'id': 'f14', 'defaultLabel': 'Botão 2', 'sub': 'F14', 'color': Colors.cyanAccent},
-    {'id': 'f15', 'defaultLabel': 'Botão 3', 'sub': 'F15', 'color': Colors.greenAccent},
-    {'id': 'f16', 'defaultLabel': 'Botão 4', 'sub': 'F16', 'color': Colors.tealAccent},
-    {'id': 'f17', 'defaultLabel': 'Botão 5', 'sub': 'F17', 'color': Colors.amberAccent},
-    {'id': 'f18', 'defaultLabel': 'Botão 6', 'sub': 'F18', 'color': Colors.orangeAccent},
-    {'id': 'f19', 'defaultLabel': 'Botão 7', 'sub': 'F19', 'color': Colors.deepOrangeAccent},
-    {'id': 'f20', 'defaultLabel': 'Botão 8', 'sub': 'F20', 'color': Colors.redAccent},
-    {'id': 'f21', 'defaultLabel': 'Botão 9', 'sub': 'F21', 'color': Colors.purpleAccent},
-    {'id': 'f22', 'defaultLabel': 'Botão 10', 'sub': 'F22', 'color': Colors.deepPurpleAccent},
-    {'id': 'f23', 'defaultLabel': 'Botão 11', 'sub': 'F23', 'color': Colors.indigoAccent},
-    {'id': 'f24', 'defaultLabel': 'Botão 12', 'sub': 'F24', 'color': Colors.pinkAccent},
+    {
+      'id': 'f13',
+      'defaultLabel': 'Botão 1',
+      'sub': 'F13',
+      'color': Colors.blueAccent
+    },
+    {
+      'id': 'f14',
+      'defaultLabel': 'Botão 2',
+      'sub': 'F14',
+      'color': Colors.cyanAccent
+    },
+    {
+      'id': 'f15',
+      'defaultLabel': 'Botão 3',
+      'sub': 'F15',
+      'color': Colors.greenAccent
+    },
+    {
+      'id': 'f16',
+      'defaultLabel': 'Botão 4',
+      'sub': 'F16',
+      'color': Colors.tealAccent
+    },
+    {
+      'id': 'f17',
+      'defaultLabel': 'Botão 5',
+      'sub': 'F17',
+      'color': Colors.amberAccent
+    },
+    {
+      'id': 'f18',
+      'defaultLabel': 'Botão 6',
+      'sub': 'F18',
+      'color': Colors.orangeAccent
+    },
+    {
+      'id': 'f19',
+      'defaultLabel': 'Botão 7',
+      'sub': 'F19',
+      'color': Colors.deepOrangeAccent
+    },
+    {
+      'id': 'f20',
+      'defaultLabel': 'Botão 8',
+      'sub': 'F20',
+      'color': Colors.redAccent
+    },
+    {
+      'id': 'f21',
+      'defaultLabel': 'Botão 9',
+      'sub': 'F21',
+      'color': Colors.purpleAccent
+    },
+    {
+      'id': 'f22',
+      'defaultLabel': 'Botão 10',
+      'sub': 'F22',
+      'color': Colors.deepPurpleAccent
+    },
+    {
+      'id': 'f23',
+      'defaultLabel': 'Botão 11',
+      'sub': 'F23',
+      'color': Colors.indigoAccent
+    },
+    {
+      'id': 'f24',
+      'defaultLabel': 'Botão 12',
+      'sub': 'F24',
+      'color': Colors.pinkAccent
+    },
   ];
 
   // Aba 2: Numpad - Agrupa TODOS os botões referentes ao teclado numérico
   static const List<Map<String, dynamic>> _numpadButtons = [
-    {'id': 'numpad_7', 'defaultLabel': 'Num 7', 'sub': 'Numpad', 'color': Colors.blueAccent},
-    {'id': 'numpad_8', 'defaultLabel': 'Num 8', 'sub': 'Numpad', 'color': Colors.blueAccent},
-    {'id': 'numpad_9', 'defaultLabel': 'Num 9', 'sub': 'Numpad', 'color': Colors.blueAccent},
-    {'id': 'numpad_div', 'defaultLabel': 'Num /', 'sub': 'Numpad', 'color': Colors.cyanAccent},
-
-    {'id': 'numpad_4', 'defaultLabel': 'Num 4', 'sub': 'Numpad', 'color': Colors.tealAccent},
-    {'id': 'numpad_5', 'defaultLabel': 'Num 5', 'sub': 'Numpad', 'color': Colors.tealAccent},
-    {'id': 'numpad_6', 'defaultLabel': 'Num 6', 'sub': 'Numpad', 'color': Colors.tealAccent},
-    {'id': 'numpad_mul', 'defaultLabel': 'Num *', 'sub': 'Numpad', 'color': Colors.cyanAccent},
-
-    {'id': 'numpad_1', 'defaultLabel': 'Num 1', 'sub': 'Numpad', 'color': Colors.greenAccent},
-    {'id': 'numpad_2', 'defaultLabel': 'Num 2', 'sub': 'Numpad', 'color': Colors.greenAccent},
-    {'id': 'numpad_3', 'defaultLabel': 'Num 3', 'sub': 'Numpad', 'color': Colors.greenAccent},
-    {'id': 'numpad_sub', 'defaultLabel': 'Num -', 'sub': 'Numpad', 'color': Colors.amberAccent},
-
-    {'id': 'numpad_0', 'defaultLabel': 'Num 0', 'sub': 'Numpad', 'color': Colors.orangeAccent},
-    {'id': 'numpad_dot', 'defaultLabel': 'Num .', 'sub': 'Numpad', 'color': Colors.orangeAccent},
-    {'id': 'numpad_enter', 'defaultLabel': 'Num Enter', 'sub': 'Numpad', 'color': Colors.redAccent},
-    {'id': 'numpad_add', 'defaultLabel': 'Num +', 'sub': 'Numpad', 'color': Colors.amberAccent},
+    {
+      'id': 'numpad_7',
+      'defaultLabel': 'Num 7',
+      'sub': 'Numpad',
+      'color': Colors.blueAccent
+    },
+    {
+      'id': 'numpad_8',
+      'defaultLabel': 'Num 8',
+      'sub': 'Numpad',
+      'color': Colors.blueAccent
+    },
+    {
+      'id': 'numpad_9',
+      'defaultLabel': 'Num 9',
+      'sub': 'Numpad',
+      'color': Colors.blueAccent
+    },
+    {
+      'id': 'numpad_div',
+      'defaultLabel': 'Num /',
+      'sub': 'Numpad',
+      'color': Colors.cyanAccent
+    },
+    {
+      'id': 'numpad_4',
+      'defaultLabel': 'Num 4',
+      'sub': 'Numpad',
+      'color': Colors.tealAccent
+    },
+    {
+      'id': 'numpad_5',
+      'defaultLabel': 'Num 5',
+      'sub': 'Numpad',
+      'color': Colors.tealAccent
+    },
+    {
+      'id': 'numpad_6',
+      'defaultLabel': 'Num 6',
+      'sub': 'Numpad',
+      'color': Colors.tealAccent
+    },
+    {
+      'id': 'numpad_mul',
+      'defaultLabel': 'Num *',
+      'sub': 'Numpad',
+      'color': Colors.cyanAccent
+    },
+    {
+      'id': 'numpad_1',
+      'defaultLabel': 'Num 1',
+      'sub': 'Numpad',
+      'color': Colors.greenAccent
+    },
+    {
+      'id': 'numpad_2',
+      'defaultLabel': 'Num 2',
+      'sub': 'Numpad',
+      'color': Colors.greenAccent
+    },
+    {
+      'id': 'numpad_3',
+      'defaultLabel': 'Num 3',
+      'sub': 'Numpad',
+      'color': Colors.greenAccent
+    },
+    {
+      'id': 'numpad_sub',
+      'defaultLabel': 'Num -',
+      'sub': 'Numpad',
+      'color': Colors.amberAccent
+    },
+    {
+      'id': 'numpad_0',
+      'defaultLabel': 'Num 0',
+      'sub': 'Numpad',
+      'color': Colors.orangeAccent
+    },
+    {
+      'id': 'numpad_dot',
+      'defaultLabel': 'Num .',
+      'sub': 'Numpad',
+      'color': Colors.orangeAccent
+    },
+    {
+      'id': 'numpad_enter',
+      'defaultLabel': 'Num Enter',
+      'sub': 'Numpad',
+      'color': Colors.redAccent
+    },
+    {
+      'id': 'numpad_add',
+      'defaultLabel': 'Num +',
+      'sub': 'Numpad',
+      'color': Colors.amberAccent
+    },
   ];
 
   // Aba 3: Six Pack - Bloco clássico de 6 teclas + Controles de Mídia
   static const List<Map<String, dynamic>> _sixPackButtons = [
     // Bloco Clássico de Navegação (Six Pack)
-    {'id': 'insert', 'defaultLabel': 'Insert', 'sub': 'Nav', 'color': Colors.blueAccent},
-    {'id': 'home', 'defaultLabel': 'Home', 'sub': 'Nav', 'color': Colors.cyanAccent},
-    {'id': 'pageup', 'defaultLabel': 'Page Up', 'sub': 'Nav', 'color': Colors.greenAccent},
-    {'id': 'delete', 'defaultLabel': 'Delete', 'sub': 'Nav', 'color': Colors.tealAccent},
-    {'id': 'end', 'defaultLabel': 'End', 'sub': 'Nav', 'color': Colors.amberAccent},
-    {'id': 'pagedown', 'defaultLabel': 'Page Down', 'sub': 'Nav', 'color': Colors.orangeAccent},
+    {
+      'id': 'insert',
+      'defaultLabel': 'Insert',
+      'sub': 'Nav',
+      'color': Colors.blueAccent
+    },
+    {
+      'id': 'home',
+      'defaultLabel': 'Home',
+      'sub': 'Nav',
+      'color': Colors.cyanAccent
+    },
+    {
+      'id': 'pageup',
+      'defaultLabel': 'Page Up',
+      'sub': 'Nav',
+      'color': Colors.greenAccent
+    },
+    {
+      'id': 'delete',
+      'defaultLabel': 'Delete',
+      'sub': 'Nav',
+      'color': Colors.tealAccent
+    },
+    {
+      'id': 'end',
+      'defaultLabel': 'End',
+      'sub': 'Nav',
+      'color': Colors.amberAccent
+    },
+    {
+      'id': 'pagedown',
+      'defaultLabel': 'Page Down',
+      'sub': 'Nav',
+      'color': Colors.orangeAccent
+    },
 
     // Controles de Mídia do Sistema
-    {'id': 'media_prev', 'defaultLabel': 'Previous', 'sub': 'Media', 'color': Colors.purpleAccent, 'icon': Icons.skip_previous_rounded},
-    {'id': 'media_play_pause', 'defaultLabel': 'Play / Pause', 'sub': 'Media', 'color': Colors.deepPurpleAccent, 'icon': Icons.play_arrow_rounded},
-    {'id': 'media_next', 'defaultLabel': 'Next', 'sub': 'Media', 'color': Colors.indigoAccent, 'icon': Icons.skip_next_rounded},
-    {'id': 'volume_down', 'defaultLabel': 'Vol -', 'sub': 'Media', 'color': Colors.deepOrangeAccent, 'icon': Icons.volume_down_rounded},
-    {'id': 'volume_mute', 'defaultLabel': 'Mute', 'sub': 'Media', 'color': Colors.redAccent, 'icon': Icons.volume_off_rounded},
-    {'id': 'volume_up', 'defaultLabel': 'Vol +', 'sub': 'Media', 'color': Colors.pinkAccent, 'icon': Icons.volume_up_rounded},
+    {
+      'id': 'media_prev',
+      'defaultLabel': 'Previous',
+      'sub': 'Media',
+      'color': Colors.purpleAccent,
+      'icon': Icons.skip_previous_rounded
+    },
+    {
+      'id': 'media_play_pause',
+      'defaultLabel': 'Play / Pause',
+      'sub': 'Media',
+      'color': Colors.deepPurpleAccent,
+      'icon': Icons.play_arrow_rounded
+    },
+    {
+      'id': 'media_next',
+      'defaultLabel': 'Next',
+      'sub': 'Media',
+      'color': Colors.indigoAccent,
+      'icon': Icons.skip_next_rounded
+    },
+    {
+      'id': 'volume_down',
+      'defaultLabel': 'Vol -',
+      'sub': 'Media',
+      'color': Colors.deepOrangeAccent,
+      'icon': Icons.volume_down_rounded
+    },
+    {
+      'id': 'volume_mute',
+      'defaultLabel': 'Mute',
+      'sub': 'Media',
+      'color': Colors.redAccent,
+      'icon': Icons.volume_off_rounded
+    },
+    {
+      'id': 'volume_up',
+      'defaultLabel': 'Vol +',
+      'sub': 'Media',
+      'color': Colors.pinkAccent,
+      'icon': Icons.volume_up_rounded
+    },
   ];
 
   // Catálogo completo indexado por ID
   static final Map<String, Map<String, dynamic>> _catalog = {
-    for (final btn in [..._genericButtons, ..._numpadButtons, ..._sixPackButtons])
+    for (final btn in [
+      ..._genericButtons,
+      ..._numpadButtons,
+      ..._sixPackButtons
+    ])
       btn['id'] as String: btn,
   };
 
@@ -210,14 +416,19 @@ class _DeckScreenState extends State<DeckScreen> {
       }
 
       final savedActiveId = prefs.getString('active_profile_id');
-      if (savedActiveId != null && _profiles.any((p) => p.id == savedActiveId)) {
+      if (savedActiveId != null &&
+          _profiles.any((p) => p.id == savedActiveId)) {
         _activeProfileId = savedActiveId;
       } else {
         _activeProfileId = null;
       }
 
       // Carregar labels globais da tela principal
-      for (final btn in [..._genericButtons, ..._numpadButtons, ..._sixPackButtons]) {
+      for (final btn in [
+        ..._genericButtons,
+        ..._numpadButtons,
+        ..._sixPackButtons
+      ]) {
         final id = btn['id'] as String;
         final saved = prefs.getString('label_$id');
         if (saved != null && saved.isNotEmpty) {
@@ -226,11 +437,8 @@ class _DeckScreenState extends State<DeckScreen> {
       }
     });
 
-    // Inicia auto-descoberta em segundo plano ao abrir o app (quando habilitado e fora de testes)
-    final isTest = Platform.environment.containsKey('FLUTTER_TEST');
-    if (widget.autoDiscover && !isTest) {
-      _autoDiscoverHost(silent: true);
-    }
+    // Inicia auto-descoberta em segundo plano ao abrir o app
+    _autoDiscoverHost(silent: true);
   }
 
   Future<void> _saveProfiles() async {
@@ -270,7 +478,8 @@ class _DeckScreenState extends State<DeckScreen> {
 
     try {
       final service = DiscoveryService(targetPort: _serverPort);
-      final hosts = await service.searchHosts(timeout: const Duration(milliseconds: 1500));
+      final hosts = await service.searchHosts(
+          timeout: const Duration(milliseconds: 1500));
       if (!mounted) return;
 
       if (hosts.isNotEmpty) {
@@ -287,7 +496,8 @@ class _DeckScreenState extends State<DeckScreen> {
         if (!silent && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Conectado a ${matchingHost.name} (${matchingHost.ip})'),
+              content:
+                  Text('Conectado a ${matchingHost.name} (${matchingHost.ip})'),
               duration: const Duration(seconds: 2),
               behavior: SnackBarBehavior.floating,
               backgroundColor: Colors.teal.shade700,
@@ -388,7 +598,8 @@ class _DeckScreenState extends State<DeckScreen> {
 
   // Dialog de renomeação na Tela Principal
   void _showRenameDialog(String id, String currentLabel, String defaultLabel) {
-    final controller = TextEditingController(text: currentLabel == defaultLabel ? '' : currentLabel);
+    final controller = TextEditingController(
+        text: currentLabel == defaultLabel ? '' : currentLabel);
     showDialog(
       context: context,
       builder: (context) {
@@ -531,7 +742,8 @@ class _DeckScreenState extends State<DeckScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('EXCLUIR VIEW'),
-          content: Text('Tem certeza de que deseja excluir a view "${profile.name}"?'),
+          content: Text(
+              'Tem certeza de que deseja excluir a view "${profile.name}"?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -575,8 +787,14 @@ class _DeckScreenState extends State<DeckScreen> {
             final categories = [
               {'title': 'Generic (F13 a F24)', 'list': _genericButtons},
               {'title': 'Numpad (Teclado Numérico)', 'list': _numpadButtons},
-              {'title': 'Six Pack (Navegação)', 'list': _sixPackButtons.sublist(0, 6)},
-              {'title': 'Controles de Mídia', 'list': _sixPackButtons.sublist(6)},
+              {
+                'title': 'Six Pack (Navegação)',
+                'list': _sixPackButtons.sublist(0, 6)
+              },
+              {
+                'title': 'Controles de Mídia',
+                'list': _sixPackButtons.sublist(6)
+              },
             ];
 
             return DraggableScrollableSheet(
@@ -586,7 +804,8 @@ class _DeckScreenState extends State<DeckScreen> {
               expand: false,
               builder: (context, scrollController) {
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0, vertical: 12.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -609,11 +828,13 @@ class _DeckScreenState extends State<DeckScreen> {
                             children: [
                               Text(
                                 'Adicionar Teclas (${profile.name})',
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                               const Text(
                                 'Toque nas teclas para incluir nesta view',
-                                style: TextStyle(fontSize: 12, color: Colors.white60),
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.white60),
                               ),
                             ],
                           ),
@@ -631,13 +852,15 @@ class _DeckScreenState extends State<DeckScreen> {
                           itemBuilder: (context, catIdx) {
                             final cat = categories[catIdx];
                             final title = cat['title'] as String;
-                            final list = cat['list'] as List<Map<String, dynamic>>;
+                            final list =
+                                cat['list'] as List<Map<String, dynamic>>;
 
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8.0),
                                   child: Text(
                                     title.toUpperCase(),
                                     style: const TextStyle(
@@ -653,24 +876,33 @@ class _DeckScreenState extends State<DeckScreen> {
                                   runSpacing: 8,
                                   children: list.map((btn) {
                                     final id = btn['id'] as String;
-                                    final defaultLabel = btn['defaultLabel'] as String;
+                                    final defaultLabel =
+                                        btn['defaultLabel'] as String;
                                     final icon = btn['icon'] as IconData?;
                                     final color = btn['color'] as Color;
-                                    final isAdded = profile.buttonKeys.contains(id);
+                                    final isAdded =
+                                        profile.buttonKeys.contains(id);
 
                                     return ActionChip(
                                       avatar: isAdded
-                                          ? const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 18)
+                                          ? const Icon(
+                                              Icons.check_circle_rounded,
+                                              color: Colors.greenAccent,
+                                              size: 18)
                                           : (icon != null
-                                              ? Icon(icon, color: color, size: 16)
+                                              ? Icon(icon,
+                                                  color: color, size: 16)
                                               : null),
                                       label: Text(defaultLabel),
                                       backgroundColor: isAdded
-                                          ? Colors.greenAccent.withValues(alpha: 0.15)
-                                          : Colors.white.withValues(alpha: 0.05),
+                                          ? Colors.greenAccent
+                                              .withValues(alpha: 0.15)
+                                          : Colors.white
+                                              .withValues(alpha: 0.05),
                                       side: BorderSide(
                                         color: isAdded
-                                            ? Colors.greenAccent.withValues(alpha: 0.5)
+                                            ? Colors.greenAccent
+                                                .withValues(alpha: 0.5)
                                             : Colors.white24,
                                       ),
                                       onPressed: () {
@@ -707,7 +939,8 @@ class _DeckScreenState extends State<DeckScreen> {
   }
 
   // Opções de botão na view customizada (Renomear nesta view ou Remover)
-  void _showCustomViewButtonOptions(String keyId, String currentLabel, String defaultLabel) {
+  void _showCustomViewButtonOptions(
+      String keyId, String currentLabel, String defaultLabel) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -719,14 +952,16 @@ class _DeckScreenState extends State<DeckScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     const Icon(Icons.tune_rounded, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       'Opções da Tecla ($keyId)'.toUpperCase(),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ],
                 ),
@@ -738,13 +973,17 @@ class _DeckScreenState extends State<DeckScreen> {
                 subtitle: Text('Nome atual: $currentLabel'),
                 onTap: () {
                   Navigator.pop(context);
-                  _showContextualRenameDialog(keyId, currentLabel, defaultLabel);
+                  _showContextualRenameDialog(
+                      keyId, currentLabel, defaultLabel);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                title: const Text('Remover desta View', style: TextStyle(color: Colors.redAccent)),
-                subtitle: const Text('Remove o botão desta tela sem afetar o servidor'),
+                leading: const Icon(Icons.delete_outline_rounded,
+                    color: Colors.redAccent),
+                title: const Text('Remover desta View',
+                    style: TextStyle(color: Colors.redAccent)),
+                subtitle: const Text(
+                    'Remove o botão desta tela sem afetar o servidor'),
                 onTap: () {
                   Navigator.pop(context);
                   setState(() {
@@ -763,8 +1002,10 @@ class _DeckScreenState extends State<DeckScreen> {
   }
 
   // Dialog de renomeação contextual no perfil ativo
-  void _showContextualRenameDialog(String keyId, String currentLabel, String defaultLabel) {
-    final controller = TextEditingController(text: currentLabel == defaultLabel ? '' : currentLabel);
+  void _showContextualRenameDialog(
+      String keyId, String currentLabel, String defaultLabel) {
+    final controller = TextEditingController(
+        text: currentLabel == defaultLabel ? '' : currentLabel);
     showDialog(
       context: context,
       builder: (context) {
@@ -816,7 +1057,8 @@ class _DeckScreenState extends State<DeckScreen> {
   }
 
   void _showConfigModal() {
-    final TextEditingController ipController = TextEditingController(text: _serverIp);
+    final TextEditingController ipController =
+        TextEditingController(text: _serverIp);
     List<DiscoveredHost> modalDiscoveredHosts = [];
     bool isScanning = false;
 
@@ -833,7 +1075,8 @@ class _DeckScreenState extends State<DeckScreen> {
 
               try {
                 final service = DiscoveryService(targetPort: _serverPort);
-                final found = await service.searchHosts(timeout: const Duration(milliseconds: 1800));
+                final found = await service.searchHosts(
+                    timeout: const Duration(milliseconds: 1800));
                 if (dialogCtx.mounted) {
                   setModalState(() {
                     modalDiscoveredHosts = found;
@@ -872,7 +1115,9 @@ class _DeckScreenState extends State<DeckScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.radar_rounded),
-                      label: Text(isScanning ? 'Procurando PC na rede...' : 'Buscar PC na Rede Local'),
+                      label: Text(isScanning
+                          ? 'Procurando PC na rede...'
+                          : 'Buscar PC na Rede Local'),
                     ),
                     const SizedBox(height: 12),
 
@@ -880,32 +1125,43 @@ class _DeckScreenState extends State<DeckScreen> {
                     if (modalDiscoveredHosts.isNotEmpty) ...[
                       const Text(
                         'Computadores Encontrados:',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.greenAccent),
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.greenAccent),
                       ),
                       const SizedBox(height: 6),
                       ...modalDiscoveredHosts.map((h) {
                         final isCurrent = h.ip == _serverIp;
                         return Card(
                           margin: const EdgeInsets.only(bottom: 6),
-                          color: isCurrent ? Colors.teal.withValues(alpha: 0.2) : null,
+                          color: isCurrent
+                              ? Colors.teal.withValues(alpha: 0.2)
+                              : null,
                           child: ListTile(
                             dense: true,
                             leading: Icon(
                               Icons.computer_rounded,
-                              color: isCurrent ? Colors.greenAccent : Colors.white70,
+                              color: isCurrent
+                                  ? Colors.greenAccent
+                                  : Colors.white70,
                             ),
-                            title: Text(h.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            title: Text(h.name,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold)),
                             subtitle: Text('${h.ip}:${h.port}'),
                             trailing: isCurrent
                                 ? const Chip(
-                                    label: Text('Ativo', style: TextStyle(fontSize: 10)),
+                                    label: Text('Ativo',
+                                        style: TextStyle(fontSize: 10)),
                                     padding: EdgeInsets.zero,
                                     visualDensity: VisualDensity.compact,
                                   )
                                 : OutlinedButton(
                                     style: OutlinedButton.styleFrom(
                                       visualDensity: VisualDensity.compact,
-                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10),
                                     ),
                                     onPressed: () {
                                       _saveIpAndHost(h.ip, h.name);
@@ -939,7 +1195,8 @@ class _DeckScreenState extends State<DeckScreen> {
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                     ),
                     const SizedBox(height: 8),
                     const Text(
@@ -990,7 +1247,10 @@ class _DeckScreenState extends State<DeckScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.25),
+                color: Theme.of(context)
+                    .colorScheme
+                    .primaryContainer
+                    .withValues(alpha: 0.25),
               ),
               child: Row(
                 children: [
@@ -1006,7 +1266,8 @@ class _DeckScreenState extends State<DeckScreen> {
                       children: [
                         Text(
                           'Stream Deck',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         Text(
                           'Perfis & Views Personalizadas',
@@ -1022,13 +1283,19 @@ class _DeckScreenState extends State<DeckScreen> {
             ListTile(
               leading: Icon(
                 Icons.grid_view_rounded,
-                color: _activeProfileId == null ? Theme.of(context).colorScheme.primary : Colors.white70,
+                color: _activeProfileId == null
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.white70,
               ),
-              title: const Text('Tela Principal', style: TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: const Text('Generic, Numpad, Six Pack', style: TextStyle(fontSize: 11)),
+              title: const Text('Tela Principal',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Generic, Numpad, Six Pack',
+                  style: TextStyle(fontSize: 11)),
               selected: _activeProfileId == null,
-              selectedTileColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              selectedTileColor:
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
               onTap: () {
                 setState(() {
                   _activeProfileId = null;
@@ -1043,7 +1310,8 @@ class _DeckScreenState extends State<DeckScreen> {
               child: Divider(),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -1083,13 +1351,22 @@ class _DeckScreenState extends State<DeckScreen> {
                         return ListTile(
                           leading: Icon(
                             Icons.folder_special_rounded,
-                            color: isSelected ? Theme.of(context).colorScheme.primary : Colors.white60,
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.white60,
                           ),
-                          title: Text(profile.name, style: const TextStyle(fontWeight: FontWeight.w500)),
-                          subtitle: Text('${profile.buttonKeys.length} botões', style: const TextStyle(fontSize: 11)),
+                          title: Text(profile.name,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w500)),
+                          subtitle: Text('${profile.buttonKeys.length} botões',
+                              style: const TextStyle(fontSize: 11)),
                           selected: isSelected,
-                          selectedTileColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          selectedTileColor: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.15),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                           trailing: PopupMenuButton<String>(
                             icon: const Icon(Icons.more_vert, size: 20),
                             onSelected: (val) {
@@ -1114,9 +1391,12 @@ class _DeckScreenState extends State<DeckScreen> {
                                 value: 'delete',
                                 child: Row(
                                   children: [
-                                    Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 18),
+                                    Icon(Icons.delete_outline_rounded,
+                                        color: Colors.redAccent, size: 18),
                                     SizedBox(width: 8),
-                                    Text('Excluir View', style: TextStyle(color: Colors.redAccent)),
+                                    Text('Excluir View',
+                                        style:
+                                            TextStyle(color: Colors.redAccent)),
                                   ],
                                 ),
                               ),
@@ -1197,7 +1477,8 @@ class _DeckScreenState extends State<DeckScreen> {
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(12),
@@ -1266,17 +1547,23 @@ class _DeckScreenState extends State<DeckScreen> {
                       ButtonSegment<DeckMode>(
                         value: DeckMode.generic,
                         icon: Icon(Icons.grid_view_rounded, size: 14),
-                        label: Text('Generic', style: TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
+                        label: Text('Generic',
+                            style: TextStyle(fontSize: 11),
+                            overflow: TextOverflow.ellipsis),
                       ),
                       ButtonSegment<DeckMode>(
                         value: DeckMode.numpad,
                         icon: Icon(Icons.dialpad_rounded, size: 14),
-                        label: Text('Numpad', style: TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
+                        label: Text('Numpad',
+                            style: TextStyle(fontSize: 11),
+                            overflow: TextOverflow.ellipsis),
                       ),
                       ButtonSegment<DeckMode>(
                         value: DeckMode.sixPack,
                         icon: Icon(Icons.apps_rounded, size: 14),
-                        label: Text('Six Pack', style: TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
+                        label: Text('Six Pack',
+                            style: TextStyle(fontSize: 11),
+                            overflow: TextOverflow.ellipsis),
                       ),
                     ],
                     selected: {_currentMode},
@@ -1287,7 +1574,8 @@ class _DeckScreenState extends State<DeckScreen> {
                     style: const ButtonStyle(
                       visualDensity: VisualDensity.compact,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 4)),
+                      padding: WidgetStatePropertyAll(
+                          EdgeInsets.symmetric(horizontal: 4)),
                     ),
                   ),
                 ),
@@ -1295,7 +1583,8 @@ class _DeckScreenState extends State<DeckScreen> {
                 // Banner informativo do modo ativo
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: _currentMode == DeckMode.generic
                         ? Colors.blueAccent.withValues(alpha: 0.12)
@@ -1354,9 +1643,11 @@ class _DeckScreenState extends State<DeckScreen> {
                   child: GridView.builder(
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: _currentMode == DeckMode.numpad ? 4 : 3,
-                      crossAxisSpacing: _currentMode == DeckMode.numpad ? 8 : 10,
+                      crossAxisSpacing:
+                          _currentMode == DeckMode.numpad ? 8 : 10,
                       mainAxisSpacing: _currentMode == DeckMode.numpad ? 8 : 10,
-                      childAspectRatio: _currentMode == DeckMode.numpad ? 0.95 : 1.0,
+                      childAspectRatio:
+                          _currentMode == DeckMode.numpad ? 0.95 : 1.0,
                     ),
                     itemCount: _currentButtons.length,
                     itemBuilder: (context, index) {
@@ -1377,7 +1668,8 @@ class _DeckScreenState extends State<DeckScreen> {
                         color: color,
                         icon: icon,
                         isPressed: isPressed,
-                        onLongPress: () => _showRenameDialog(id, displayLabel, defaultLabel),
+                        onLongPress: () =>
+                            _showRenameDialog(id, displayLabel, defaultLabel),
                       );
                     },
                   ),
@@ -1386,7 +1678,8 @@ class _DeckScreenState extends State<DeckScreen> {
                 // Banner informativo da Custom View
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.deepPurpleAccent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
@@ -1397,12 +1690,14 @@ class _DeckScreenState extends State<DeckScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.folder_special_rounded, size: 16, color: Colors.deepPurpleAccent),
+                      const Icon(Icons.folder_special_rounded,
+                          size: 16, color: Colors.deepPurpleAccent),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'View: ${activeProf.name} • ${activeProf.buttonKeys.length} botões adicionados',
-                          style: const TextStyle(fontSize: 11, color: Colors.white70),
+                          style: const TextStyle(
+                              fontSize: 11, color: Colors.white70),
                         ),
                       ),
                       InkWell(
@@ -1411,9 +1706,14 @@ class _DeckScreenState extends State<DeckScreen> {
                           padding: EdgeInsets.symmetric(horizontal: 4.0),
                           child: Row(
                             children: [
-                              Icon(Icons.add, size: 14, color: Colors.deepPurpleAccent),
+                              Icon(Icons.add,
+                                  size: 14, color: Colors.deepPurpleAccent),
                               SizedBox(width: 2),
-                              Text('Adicionar', style: TextStyle(fontSize: 11, color: Colors.deepPurpleAccent, fontWeight: FontWeight.bold)),
+                              Text('Adicionar',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.deepPurpleAccent,
+                                      fontWeight: FontWeight.bold)),
                             ],
                           ),
                         ),
@@ -1430,17 +1730,22 @@ class _DeckScreenState extends State<DeckScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.touch_app_rounded, size: 64, color: Colors.white24),
+                              const Icon(Icons.touch_app_rounded,
+                                  size: 64, color: Colors.white24),
                               const SizedBox(height: 16),
                               const Text(
                                 'Nenhum botão nesta view',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white70),
+                                style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white70),
                               ),
                               const SizedBox(height: 8),
                               const Text(
                                 'Monte seu layout personalizado mesclando teclas\nde F13 a F24, Numpad, Navegação e Mídia.',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 12, color: Colors.white38),
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.white38),
                               ),
                               const SizedBox(height: 20),
                               FilledButton.icon(
@@ -1452,7 +1757,8 @@ class _DeckScreenState extends State<DeckScreen> {
                           ),
                         )
                       : GridView.builder(
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 3,
                             crossAxisSpacing: 10,
                             mainAxisSpacing: 10,
@@ -1461,15 +1767,20 @@ class _DeckScreenState extends State<DeckScreen> {
                           itemCount: activeProf.buttonKeys.length,
                           itemBuilder: (context, index) {
                             final keyId = activeProf.buttonKeys[index];
-                            final btnDef = _catalog[keyId] ?? {
-                              'id': keyId,
-                              'defaultLabel': keyId,
-                              'sub': 'Custom',
-                              'color': Colors.blueGrey,
-                            };
-                            final defaultLabel = btnDef['defaultLabel'] as String;
+                            final btnDef = _catalog[keyId] ??
+                                {
+                                  'id': keyId,
+                                  'defaultLabel': keyId,
+                                  'sub': 'Custom',
+                                  'color': Colors.blueGrey,
+                                };
+                            final defaultLabel =
+                                btnDef['defaultLabel'] as String;
                             // Alias contextual do perfil prevalece; se não houver, usa label global ou padrão
-                            final displayLabel = activeProf.customLabels[keyId] ?? _customLabels[keyId] ?? defaultLabel;
+                            final displayLabel =
+                                activeProf.customLabels[keyId] ??
+                                    _customLabels[keyId] ??
+                                    defaultLabel;
                             final sub = btnDef['sub'] as String;
                             final color = btnDef['color'] as Color;
                             final icon = btnDef['icon'] as IconData?;
@@ -1483,7 +1794,8 @@ class _DeckScreenState extends State<DeckScreen> {
                               color: color,
                               icon: icon,
                               isPressed: isPressed,
-                              onLongPress: () => _showCustomViewButtonOptions(keyId, displayLabel, defaultLabel),
+                              onLongPress: () => _showCustomViewButtonOptions(
+                                  keyId, displayLabel, defaultLabel),
                             );
                           },
                         ),
@@ -1514,7 +1826,8 @@ class _DeckScreenState extends State<DeckScreen> {
       onTapUp: (_) => _handleKey(id, 'up'),
       onTapCancel: () => _handleKey(id, 'up'),
       onLongPress: () {
-        _handleKey(id, 'up'); // Libera tecla imediatamente para não ativar comandos ao abrir opções
+        _handleKey(id,
+            'up'); // Libera tecla imediatamente para não ativar comandos ao abrir opções
         if (onLongPress != null) {
           onLongPress();
         } else {
@@ -1524,7 +1837,9 @@ class _DeckScreenState extends State<DeckScreen> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 70),
         decoration: BoxDecoration(
-          color: isPressed ? color.withValues(alpha: 0.4) : color.withValues(alpha: 0.12),
+          color: isPressed
+              ? color.withValues(alpha: 0.4)
+              : color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isPressed ? Colors.white : color.withValues(alpha: 0.7),
@@ -1572,7 +1887,8 @@ class _DeckScreenState extends State<DeckScreen> {
                 ),
                 const SizedBox(height: 3),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: BoxDecoration(
                     color: Colors.black45,
                     borderRadius: BorderRadius.circular(6),
