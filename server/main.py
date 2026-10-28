@@ -31,6 +31,48 @@ except ImportError:
     PYSTRAY_AVAILABLE = False
 
 
+# -------------------------------------------------------------
+# AUTO-REDIRECIONAMENTO DE AMBIENTE PYTHON (WINDOWS)
+# -------------------------------------------------------------
+def ensure_correct_python_environment():
+    """
+    Garante que o script execute no interpretador Python do Windows com todas as dependências instaladas.
+    Se iniciado pelo Python do MSYS2/MinGW onde pystray/Pillow podem não estar instalados,
+    redireciona automaticamente para o 'py' ou o Python 3.11 do Windows.
+    """
+    if sys.platform != 'win32':
+        return
+
+    # Se já temos pystray e PIL disponíveis neste processo, o ambiente está perfeito!
+    if PYSTRAY_AVAILABLE and PIL_AVAILABLE:
+        return
+
+    # Evita loops de redirecionamento caso uma tentativa anterior já tenha sido feita
+    if os.environ.get("STREAM_DECK_ENV_CHECKED") == "1":
+        return
+    os.environ["STREAM_DECK_ENV_CHECKED"] = "1"
+
+    candidates = [
+        "py",
+        r"C:\Program Files\Python311\python.exe",
+        r"C:\Program Files\Python312\python.exe",
+        r"C:\Program Files\Python310\python.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\Programs\Python\Python311\python.exe"),
+    ]
+
+    for candidate in candidates:
+        try:
+            check_cmd = [candidate, "-c", "import pystray, PIL; print('READY')"]
+            res = subprocess.run(check_cmd, capture_output=True, text=True, timeout=2)
+            if "READY" in res.stdout:
+                script_path = os.path.abspath(__file__)
+                args = [candidate, script_path] + sys.argv[1:]
+                subprocess.Popen(args)
+                sys.exit(0)
+        except Exception:
+            continue
+
+
 # Configurações padrão do servidor UDP
 HOST = '0.0.0.0'
 PORT = 8080
@@ -572,23 +614,25 @@ class UDPServer:
 # GERAÇÃO DO ÍCONE DA BANDEJA (SYSTEM TRAY)
 # -------------------------------------------------------------
 def create_tray_image(active=True):
-    """Gera um ícone nítido para a área de notificação/ícones ocultos (64x64 RGBA)."""
+    """Gera um ícone de alta visibilidade e contraste estilo teclado Stream Deck (64x64 RGBA)."""
     if not PIL_AVAILABLE:
         return None
-    img = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
+    size = 64
+    img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
     border_color = (46, 204, 113, 255) if active else (231, 76, 60, 255)
-    bg_color = (25, 27, 36, 255)
+    bg_color = (24, 26, 34, 255)
 
-    # Contorno arredondado estilo botão Stream Deck
-    draw.rounded_rectangle([4, 4, 60, 60], radius=14, fill=bg_color, outline=border_color, width=4)
+    # Contorno arredondado estilo chassi do Stream Deck
+    draw.rounded_rectangle([3, 3, 61, 61], radius=14, fill=bg_color, outline=border_color, width=5)
 
-    # Indicador de estado central
-    if active:
-        draw.ellipse([20, 20, 44, 44], fill=border_color)
-    else:
-        draw.ellipse([22, 22, 42, 42], outline=border_color, width=4)
+    # 4 botões de atalho internos com alto contraste para visibilidade nítida na bandeja
+    key_color = (255, 255, 255, 255) if active else (180, 180, 180, 255)
+    draw.rounded_rectangle([13, 13, 27, 27], radius=3, fill=key_color)
+    draw.rounded_rectangle([37, 13, 51, 27], radius=3, fill=key_color)
+    draw.rounded_rectangle([13, 37, 27, 51], radius=3, fill=key_color)
+    draw.rounded_rectangle([37, 37, 51, 51], radius=3, fill=key_color)
 
     return img
 
@@ -605,8 +649,10 @@ class StreamDeckGUI:
         self.local_ip = get_local_ip()
 
         self.root = tk.Tk()
+        if self.start_minimized:
+            self.root.withdraw()
         self.root.title("Stream Deck Companion Host")
-        self.root.geometry("460x540")
+        self.root.geometry("460x570")
         self.root.resizable(False, False)
         self.root.configure(bg="#14161f")
 
@@ -616,9 +662,8 @@ class StreamDeckGUI:
         # Vincula callbacks do servidor à thread da interface gráfica
         self.server.on_event = self._on_server_packet_received
 
-        # Intercepta minimize e close do Windows
+        # Intercepta eventos de fechar e minimizar da janela
         self.root.protocol("WM_DELETE_WINDOW", self.on_close_button)
-        self.root.bind("<Unmap>", self.on_unmap_window)
 
         self._build_ui()
         self._init_tray()
@@ -627,9 +672,19 @@ class StreamDeckGUI:
         self._start_server()
 
         if self.start_minimized:
-            self.root.withdraw()
+            # Se iniciado minimizado (startup do Windows)
+            self.root.after(300, self.minimize_to_tray)
 
     def _set_window_icon(self):
+        # Tenta carregar ícone .ico local ou PhotoImage
+        ico_path = os.path.join(os.path.dirname(__file__), "icon_active.ico")
+        if os.path.isfile(ico_path):
+            try:
+                self.root.iconbitmap(ico_path)
+                return
+            except Exception:
+                pass
+
         if PIL_AVAILABLE:
             try:
                 icon_img = create_tray_image(True)
@@ -656,7 +711,7 @@ class StreamDeckGUI:
 
         # Badge de Administrador
         is_admin = check_windows_admin()
-        admin_text = "🛡️ ADMIN" if is_admin else "ℹ️ NORMAL"
+        admin_text = "ADMIN" if is_admin else "NORMAL"
         admin_fg = "#2ecc71" if is_admin else "#f39c12"
         tk.Label(
             title_frame,
@@ -677,7 +732,7 @@ class StreamDeckGUI:
         ).pack(anchor="w", pady=(3, 0))
 
         # 2. Card de Status e Controle Ligar/Desligar
-        status_card = tk.Frame(self.root, bg="#1e2230", padx=16, pady=14, highlightbackground="#2d3246", highlightthickness=1)
+        status_card = tk.Frame(self.root, bg="#1e2230", padx=16, pady=12, highlightbackground="#2d3246", highlightthickness=1)
         status_card.pack(fill="x", padx=12, pady=6)
 
         status_row = tk.Frame(status_card, bg="#1e2230")
@@ -695,6 +750,16 @@ class StreamDeckGUI:
         )
         self.status_text.pack(side="left", padx=(8, 0))
 
+        # Indicador de estado da bandeja
+        self.tray_indicator_label = tk.Label(
+            status_card,
+            text="Conectando à bandeja do sistema...",
+            font=("Segoe UI", 8),
+            fg="#8f95a8",
+            bg="#1e2230"
+        )
+        self.tray_indicator_label.pack(anchor="w", pady=(4, 0))
+
         # Botão principal de Ligar / Desligar
         self.toggle_btn = tk.Button(
             status_card,
@@ -709,7 +774,7 @@ class StreamDeckGUI:
             pady=8,
             command=self.toggle_server
         )
-        self.toggle_btn.pack(fill="x", pady=(12, 0))
+        self.toggle_btn.pack(fill="x", pady=(10, 0))
 
         # 3. Card do IP do Computador
         ip_card = tk.Frame(self.root, bg="#1e2230", padx=16, pady=12, highlightbackground="#2d3246", highlightthickness=1)
@@ -868,8 +933,12 @@ class StreamDeckGUI:
 
     def _init_tray(self):
         """Inicializa o ícone da bandeja do sistema (system tray)."""
-        if not PYSTRAY_AVAILABLE:
-            print("[AVISO] pystray não disponível. Suporte a ícones ocultos desativado.")
+        if not PYSTRAY_AVAILABLE or not PIL_AVAILABLE:
+            self.tray_icon = None
+            self.tray_indicator_label.config(
+                text="[Aviso] Bandeja indisponível (minimizará na barra de tarefas)",
+                fg="#f39c12"
+            )
             return
 
         menu = pystray.Menu(
@@ -884,10 +953,24 @@ class StreamDeckGUI:
 
         icon_image = create_tray_image(self.server.is_running)
         self.tray_icon = pystray.Icon("stream_deck_host", icon_image, "Stream Deck Host", menu)
-        threading.Thread(target=self.tray_icon.run, daemon=True).start()
+
+        try:
+            # run_detached integra o loop de eventos da bandeja sem bloquear o Tkinter
+            self.tray_icon.run_detached()
+            self.tray_indicator_label.config(
+                text="[Ativo] Ícone presente na bandeja de ícones ocultos (^)",
+                fg="#2ecc71"
+            )
+        except Exception as e:
+            print(f"[ERRO] Falha ao iniciar ícone da bandeja: {e}")
+            self.tray_icon = None
+            self.tray_indicator_label.config(
+                text="[Aviso] Falha ao registrar na bandeja (minimizará na barra de tarefas)",
+                fg="#f39c12"
+            )
 
     def _update_tray_icon(self):
-        if self.tray_icon and PYSTRAY_AVAILABLE:
+        if self.tray_icon:
             try:
                 self.tray_icon.icon = create_tray_image(self.server.is_running)
                 status_str = "Ativo" if self.server.is_running else "Parado"
@@ -954,22 +1037,29 @@ class StreamDeckGUI:
             messagebox.showwarning("Aviso", "Não foi possível atualizar a chave de inicialização no Registro do Windows.")
 
     def minimize_to_tray(self):
-        """Oculta a janela principal e a remove da barra de tarefas."""
-        self.root.withdraw()
-        if self.tray_icon:
+        """Oculta a janela principal e a transfere para a bandeja do sistema."""
+        if self.tray_icon and getattr(self.tray_icon, "visible", False):
+            self.root.withdraw()
             try:
-                self.tray_icon.notify("O servidor continua ativo em segundo plano.", "Stream Deck Host")
+                self.tray_icon.notify(
+                    "O servidor continua ativo na bandeja.\nClique duas vezes no ícone ou escolha 'Abrir Painel' para reabrir.",
+                    "Stream Deck Companion Host"
+                )
             except Exception:
                 pass
-
-    def on_unmap_window(self, event):
-        """Minimiza para a bandeja ao clicar no botão '-' (minimizar) da barra de título."""
-        if event.widget == self.root and self.root.state() == "iconic":
-            self.root.withdraw()
+        else:
+            # Fallback de segurança: se a bandeja não estiver ativa, NÃO faça withdraw!
+            # Minimize na barra de tarefas normal para que a janela nunca seja perdida
+            self.root.iconify()
+            messagebox.showinfo(
+                "Bandeja do Sistema",
+                "A bandeja do sistema não está disponível neste ambiente Python.\n"
+                "A janela foi minimizada na barra de tarefas comum para permitir reabertura."
+            )
 
     def on_close_button(self):
-        """Ao clicar no 'X', minimiza para a bandeja ao invés de fechar."""
-        if self.tray_icon:
+        """Ao clicar no 'X', minimiza para a bandeja se disponível, ou fecha."""
+        if self.tray_icon and getattr(self.tray_icon, "visible", False):
             self.minimize_to_tray()
         else:
             self.quit_application()
@@ -980,7 +1070,10 @@ class StreamDeckGUI:
 
     def _restore_window(self):
         self.root.deiconify()
+        self.root.state("normal")
         self.root.lift()
+        self.root.attributes("-topmost", True)
+        self.root.after_idle(self.root.attributes, "-topmost", False)
         self.root.focus_force()
 
     def quit_application(self, icon=None, item=None):
@@ -991,6 +1084,7 @@ class StreamDeckGUI:
                 self.tray_icon.stop()
             except Exception:
                 pass
+            self.tray_icon = None
         self.root.after(0, self.root.destroy)
 
     def run(self):
@@ -1041,6 +1135,10 @@ def main():
     parser.add_argument("--host", default=HOST, help="Endereço IP de escuta (padrão: 0.0.0.0)")
     parser.add_argument("--port", type=int, default=PORT, help="Porta UDP (padrão: 8080)")
     args = parser.parse_args()
+
+    # Se estiver no Windows e executando pelo GUI, garante interpretador com todas as dependências
+    if not args.cli:
+        ensure_correct_python_environment()
 
     # Se explicitamente solicitado modo CLI ou se Tkinter não estiver disponível
     if args.cli or not TK_AVAILABLE:
