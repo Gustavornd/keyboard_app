@@ -1,103 +1,120 @@
-# Pacote de Produção - Stream Deck Companion
+# Stream Deck Companion (Mobile to PC)
 
-Este diretório contém a versão de produção completa do ecossistema **Stream Deck**, pronta para instalação e testes em dispositivos móveis e computadores.
+Transforme seu celular Android em um painel customizável de atalhos e botões estilo **Stream Deck**, enviando comandos em tempo real para o computador. 
+
+Os comandos são injetados em **nível de hardware (DirectInput / Win32 / Linux X11)**, sendo reconhecidos perfeitamente por jogos e simuladores que ignoram emulações convencionais de teclado (como *Minecraft*, *Euro Truck Simulator 2*, *Assetto Corsa*, *Flight Simulator*, *OBS Studio*, *Discord*, etc.).
 
 ---
 
-## 📁 Estrutura dos Arquivos
+## ⚡ Download Rápido dos Instaladores (Pasta `release/`)
 
-```text
-release/
-├── README.md                            # Este guia de instalação
-├── StreamDeck.apk                       # Aplicativo Android (acesso direto)
-│
-├── android/
-│   └── StreamDeck.apk                   # Cópia para distribuição Android
-│
-├── windows/
-│   ├── StreamDeckServer.exe             # Executável portátil para Windows (com ícone nativo)
-│   └── StreamDeckServer-Windows.zip     # Arquivo compactado para compartilhamento
-│
-└── linux/
-    ├── streamdeck-server_1.0.0_all.deb  # Instalador nativo para Linux Mint / Ubuntu
-    └── install.sh                       # Script de instalação automatizada via terminal
+Para testar ou instalar imediatamente sem precisar compilar o código-fonte, utilize os arquivos pré-compilados disponíveis na pasta [release/](release/):
+
+| Plataforma | Arquivo para Instalação | Formato |
+| :--- | :--- | :--- |
+| 📱 **Android** | [release/StreamDeck.apk](release/StreamDeck.apk) | APK de release (~48.9 MB) |
+| 🪟 **Windows** | [release/windows/StreamDeckServer.exe](release/windows/StreamDeckServer.exe) | Executável portátil standalone (~35.0 MB) |
+| 🪟 **Windows (Zip)** | [release/windows/StreamDeckServer-Windows.zip](release/windows/StreamDeckServer-Windows.zip) | Arquivo zip compactado (~34.7 MB) |
+| 🐧 **Linux Mint / Ubuntu** | [release/linux/streamdeck-server_1.0.0_all.deb](release/linux/streamdeck-server_1.0.0_all.deb) | Pacote nativo `.deb` com ícone no Menu Iniciar (~551 KB) |
+| 🐧 **Linux Script** | [release/linux/install.sh](release/linux/install.sh) ou [release/install.sh](release/install.sh) | Script automatizado de instalação via terminal |
+
+---
+
+## 🚀 Como Instalar e Usar
+
+### 1. No Celular Android (App Mobile)
+1. Baixe ou transfira o arquivo [release/StreamDeck.apk](release/StreamDeck.apk) para o smartphone (via WhatsApp, Google Drive, cabo USB ou Telegram).
+2. No celular, toque em `StreamDeck.apk` para instalar.
+3. Se o Android exibir o aviso para *"Instalar apps desconhecidos"*, toque em **Configurações** e marque **Permitir desta fonte**.
+4. Conclua a instalação e abra o aplicativo.
+
+### 2. No Computador (Servidor Host)
+
+#### No Windows:
+1. Baixe o executável [release/windows/StreamDeckServer.exe](release/windows/StreamDeckServer.exe).
+2. Dê um duplo clique para iniciar. O servidor abrirá com o ícone oficial na **Barra de Tarefas do Windows** e exibirá o IP local da máquina.
+3. *(Recomendado para jogos com privilégios elevados)*: Clique com o botão direito e selecione **"Executar como Administrador"** para garantir permissões de injeção `SendInput` sem restrições de UIPI.
+4. O servidor pode ser minimizado para a **área de ícones ocultos (Bandeja / System Tray)** e possui opção de inicialização automática com o Windows.
+
+#### No Linux Mint / Ubuntu:
+* **Opção 1 (1 Clique via GDebi)**:
+  1. Dê um duplo clique no arquivo [release/linux/streamdeck-server_1.0.0_all.deb](release/linux/streamdeck-server_1.0.0_all.deb).
+  2. O instalador de pacotes do Mint abrirá. Clique em **"Instalar Pacote"**.
+  3. O atalho aparecerá automaticamente no **Menu Iniciar** procurando por *"Stream Deck Host"*, com o ícone oficial registrado.
+* **Opção 2 (Terminal com script automatizado)**:
+  ```bash
+  chmod +x release/install.sh
+  sudo ./release/install.sh
+  ```
+* **Opção 3 (Terminal direto via apt)**:
+  ```bash
+  sudo apt install ./release/linux/streamdeck-server_1.0.0_all.deb
+  ```
+
+---
+
+## 🔗 Conectando o Celular ao Computador
+
+1. Inicie o servidor no computador (Windows ou Linux).
+2. Abra o aplicativo no celular.
+3. **Conexão Automática (Wi-Fi)**: Desde que o celular e o PC estejam na mesma rede Wi-Fi, o aplicativo localizará o servidor automaticamente em menos de 2 segundos via **UDP Broadcast Auto-Discovery**, exibindo:
+   `Host: <Nome-do-PC> (<IP>:8080)` com a bolinha verde de confirmação!
+4. **Conexão via Cabo USB (Latência Zero / Sem Wi-Fi)**:
+   * Conecte o celular ao PC via cabo USB (com depuração USB ativada).
+   * No PC, execute:
+     ```bash
+     adb reverse tcp:8080 tcp:8080
+     ```
+   * No app, toque na barra de Host e insira o IP `127.0.0.1`.
+
+---
+
+## 🎮 Modos e Recursos do Aplicativo
+
+* **Modo Generic (F13 a F24)**: Teclas de função estendidas que não conflitam com o teclado físico, perfeitas para mapear atalhos no OBS Studio, Discord, Streamlabs ou simuladores.
+* **Modo Numpad Completo**: Teclado numérico de 16 teclas (0 a 9, operadores matemáticos, ponto decimal e enter).
+* **Modo Six Pack & Multimídia**: Teclas de navegação (Insert, Delete, Home, End, PageUp, PageDown) combinadas com controles de mídia do sistema operacional (Play/Pause, Faixa Anterior/Próxima, Volume +, Volume - e Mute).
+* **Views Personalizadas (Custom Profiles)**: Crie abas com combinações livres de teclas selecionadas do catálogo e defina rótulos próprios para cada jogo ou perfil de trabalho.
+* **Feedback Háptico**: Vibração sutil ao pressionar as teclas na tela.
+* **Detecção Contínua**: Suporte real a segurar teclas (`onTapDown` e `onTapUp`), permitindo acelerar veículos ou manter botões pressionados em simuladores.
+
+---
+
+## 🛠️ Compilando a partir do Código-Fonte
+
+Caso deseje desenvolver ou customizar o código:
+
+### Servidor Python (`server/`):
+```bash
+# Dependências do sistema (no Linux Mint/Ubuntu):
+sudo apt install -y python3-tk python3-pil libxtst6 x11-xserver-utils xmodmap
+
+# Dependências Python:
+cd server
+pip install -r requirements.txt
+
+# Executar o servidor:
+python main.py        # Modo gráfico
+python main.py --cli  # Modo terminal puro
+```
+
+### Aplicativo Flutter (`app/`):
+```bash
+cd app
+flutter pub get
+flutter test
+flutter build apk --release
 ```
 
 ---
 
-## 📱 1. Aplicativo Mobile (Android 12+)
+## 📚 Documentação Técnica e Guias para Agentes de IA
 
-### Arquivo: `StreamDeck.apk` (ou `android/StreamDeck.apk`)
-* **Tamanho**: ~48.9 MB
-* **Recursos**:
-  * Descoberta Automática de Host na rede local Wi-Fi.
-  * Modos pré-configurados: **Generic (F13 a F24)**, **Numpad completo** e **Six Pack / Mídia**.
-  * Views Customizadas (permite criar perfis personalizados e escolher teclas).
-  * Feedback háptico ao tocar nas teclas.
-
-### Como Instalar no Celular:
-1. Transfira o arquivo `StreamDeck.apk` para o celular (via WhatsApp, Google Drive, cabo USB ou Telegram).
-2. No celular, toque no arquivo `StreamDeck.apk` para instalar.
-3. Se o Android solicitar permissão para *"Instalar apps desconhecidos"*, toque em **Configurações** e marque **Permitir desta fonte**.
-4. Conclua a instalação e abra o aplicativo.
+* [AGENT.md](AGENT.md): Guia operacional definitivo e especificações técnicas para desenvolvedores e agentes de IA (Antigravity, Claude Code, Cursor, Copilot).
+* [WALKTHROUGH.md](WALKTHROUGH.md): Histórico arquitetural detalhado de todas as alterações e evoluções do projeto.
 
 ---
 
-## 🪟 2. Servidor Host para Windows
+## 🔒 Segurança de Rede
 
-### Arquivo: `windows/StreamDeckServer.exe`
-* **Tipo**: Executável único autocontido (Standalone EXE).
-* **Compatibilidade**: Windows 10 e Windows 11 (64-bit).
-* **Recursos**:
-  * **Ícone Oficial na Barra de Tarefas**: Registrado via `AppUserModelID` Win32 (sem o ícone padrão do Python).
-  * **Injeção de Hardware DirectInput**: Suporte nativo para jogos como Minecraft, Euro Truck Simulator, OBS Studio, etc.
-  * **Minimizar para a Bandeja**: Executa em segundo plano na área de ícones ocultos (`^`).
-  * **Iniciar com o Windows**: Opção integrada via registro do Windows.
-  * **Auto-Discovery**: Responde a buscas da rede local emitidas pelo app.
-
-### Como Executar:
-1. Basta dar um duplo clique em `StreamDeckServer.exe`.
-2. Ao abrir, o servidor exibirá o seu IP local e já estará pronto para receber conexões.
-3. *(Recomendado para jogos protegidos/elevados)*: Clique com o botão direito e escolha **"Executar como Administrador"** para garantir permissões de injeção `SendInput` em todos os jogos.
-
----
-
-## 🐧 3. Servidor Host para Linux Mint / Ubuntu
-
-### Arquivo: `linux/streamdeck-server_1.0.0_all.deb`
-* **Compatibilidade**: Linux Mint (Cinnamon, MATE, Xfce) e Ubuntu LTS (20.04, 22.04, 24.04).
-* **Recursos**:
-  * Integração com o **Menu Iniciar do Linux Mint** com ícone oficial.
-  * Comando global no terminal: `streamdeck-server`.
-  * Injeção nativa de eventos de teclado via **X11 Xtst** e mapeamento automático de teclas F13-F24 via `xmodmap`.
-
-### Como Instalar no Linux Mint:
-* **Método 1 (Interface Gráfica - 1 Clique)**:
-  1. Dê um duplo clique no arquivo `streamdeck-server_1.0.0_all.deb`.
-  2. O Instalador de Pacotes do Linux Mint (**GDebi**) será aberto.
-  3. Clique em **"Instalar Pacote"** e informe sua senha de administrador.
-  4. Pronto! O servidor aparecerá no Menu Iniciar procurando por *"Stream Deck Host"*.
-
-* **Método 2 (Terminal com script automatizado)**:
-  Abra a pasta no terminal e execute:
-  ```bash
-  sudo ./install.sh
-  ```
-
-* **Método 3 (Terminal direto via apt)**:
-  ```bash
-  sudo apt install ./streamdeck-server_1.0.0_all.deb
-  ```
-
----
-
-## 🔗 Como Conectar App e Servidor
-
-1. Abra o servidor no PC (Windows ou Linux).
-2. Abra o app no celular (certifique-se de que celular e PC estejam no **mesmo Wi-Fi**).
-3. O app detectará o computador automaticamente em menos de 2 segundos, exibindo `Host: <Nome-do-PC> (<IP>:8080)` com a bolinha verde de confirmação!
-4. *(Opcional - Cabo USB)*: Caso queira jogar via cabo USB sem Wi-Fi, conecte o celular via USB, digite `127.0.0.1` no app e execute no PC:
-   ```bash
-   adb reverse tcp:8080 tcp:8080
-   ```
-
+O servidor utiliza comunicação por UDP na rede local sem requisição de senha para garantir mínima latência em jogos. **Recomenda-se utilizar o sistema exclusivamente em redes privadas e confiáveis** (como a rede Wi-Fi da sua residência) ou via cabo USB (`adb reverse`). Evite executá-lo em redes Wi-Fi públicas compartilhadas.
