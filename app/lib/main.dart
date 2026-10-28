@@ -984,29 +984,18 @@ class _DeckScreenState extends State<DeckScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
           child: Column(
             children: [
-              // Linha com Host IP e dica de renomeação
+              // Linha com Host IP
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Host PC: $_serverIp:$_serverPort',
-                        style: const TextStyle(color: Colors.white70),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Segure para opções ✏️',
-                      style: TextStyle(color: Colors.white38, fontSize: 11),
-                    ),
-                  ],
+                child: Text(
+                  'Host PC: $_serverIp:$_serverPort',
+                  style: const TextStyle(color: Colors.white70),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(height: 10),
