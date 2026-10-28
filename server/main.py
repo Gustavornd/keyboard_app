@@ -5,8 +5,33 @@ import os
 import subprocess
 import time
 import ctypes
+import threading
+import argparse
 
-# Configurações do servidor UDP
+# Módulos opcionais para Interface Gráfica e Bandeja do Sistema
+try:
+    import tkinter as tk
+    from tkinter import messagebox
+    TK_AVAILABLE = True
+except ImportError:
+    TK_AVAILABLE = False
+
+try:
+    import winreg
+except ImportError:
+    winreg = None
+
+try:
+    import pystray
+    from PIL import Image, ImageDraw, ImageTk
+    PIL_AVAILABLE = True
+    PYSTRAY_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+    PYSTRAY_AVAILABLE = False
+
+
+# Configurações padrão do servidor UDP
 HOST = '0.0.0.0'
 PORT = 8080
 
@@ -248,9 +273,7 @@ class InputController:
                     self._alias_map['home'] = b'Home'
                     self._alias_map['end'] = b'End'
                     self._alias_map['pageup'] = b'Page_Up'
-                    self._alias_map['page_up'] = b'Page_Up'
                     self._alias_map['pagedown'] = b'Page_Down'
-                    self._alias_map['page_down'] = b'Page_Down'
                     self._alias_map['scroll_lock'] = b'Scroll_Lock'
                     self._alias_map['pause'] = b'Pause'
                     self._alias_map['media_play_pause'] = b'XF86AudioPlay'
@@ -263,9 +286,9 @@ class InputController:
                     self._alias_map['volume_mute'] = b'XF86AudioMute'
                     self._alias_map['volume_up'] = b'XF86AudioRaiseVolume'
                     self._alias_map['volume_down'] = b'XF86AudioLowerVolume'
-                    return
+                return
             except Exception as e:
-                print(f"AVISO [Linux]: Não foi possível inicializar injeção X11: {e}")
+                print(f"AVISO [Linux]: Não foi possível carregar X11/Xtst: {e}")
 
         self.mode = "log_only"
 
@@ -382,7 +405,7 @@ class InputController:
             self.display = None
 
 
-def check_windows_admin():
+def check_windows_admin() -> bool:
     """Verifica se o processo está em modo Administrador no Windows."""
     if sys.platform.startswith('win'):
         try:
@@ -392,36 +415,118 @@ def check_windows_admin():
     return False
 
 
-def start_server():
-    input_ctrl = InputController()
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    server_socket.bind((HOST, PORT))
-
-    print("=================================================")
-    print(f" Servidor UDP iniciado na porta {PORT}")
-    if input_ctrl.mode == "windows":
-        is_admin = check_windows_admin()
-        print(" [MODO WINDOWS]: Injeção nativa SendInput (F13-F24 e Numpad Scancodes) ATIVA")
-        if is_admin:
-            print(" [ADMIN]: Executando com privilégios de Administrador (UIPI bypassed).")
-        else:
-            print(" [AVISO]: Executando sem privilégios de Administrador.")
-            print("          Se o jogo ou aplicativo de destino estiver rodando como Administrador,")
-            print("          execute este terminal também como Administrador!")
-    elif input_ctrl.mode == "linux_x11":
-        print(" [MODO LINUX X11]: Injeção de Teclas Extras F13-F24 (Keycodes 183-194) ATIVA")
-    else:
-        print(" [MODO SOMENTE LOG]: Injeção no sistema desativada")
-    print("=================================================")
-    print("Aguardando comandos dos botões do Stream Deck...")
-    print("DICA: Certifique-se de que o celular e o PC estão na mesma rede!")
-    if sys.platform.startswith('win'):
-        print("DICA WINDOWS: Permita o Python e a porta 8080 no Firewall do Windows.")
-    print("Para sair, pressione CTRL+C.\n")
-
+# -------------------------------------------------------------
+# DETECÇÃO DE IP LOCAL E UTILITÁRIOS DE REDE
+# -------------------------------------------------------------
+def get_local_ip() -> str:
+    """Detecta o endereço IPv4 local da máquina na rede ativa."""
     try:
-        while True:
-            data, addr = server_socket.recvfrom(1024)
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        try:
+            return socket.gethostbyname(socket.gethostname())
+        except Exception:
+            return '127.0.0.1'
+
+
+# -------------------------------------------------------------
+# GERENCIAMENTO DE INICIALIZAÇÃO COM O WINDOWS (REGISTRY)
+# -------------------------------------------------------------
+REG_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+REG_RUN_NAME = "StreamDeckServer"
+
+def is_autostart_enabled() -> bool:
+    """Verifica se o servidor está configurado para iniciar com o Windows."""
+    if sys.platform != 'win32' or not winreg:
+        return False
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_RUN_KEY, 0, winreg.KEY_READ) as key:
+            val, _ = winreg.QueryValueEx(key, REG_RUN_NAME)
+            return bool(val)
+    except FileNotFoundError:
+        return False
+    except Exception:
+        return False
+
+def set_autostart(enable: bool) -> bool:
+    """Habilita ou desabilita a inicialização automática com o Windows."""
+    if sys.platform != 'win32' or not winreg:
+        return False
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+            if enable:
+                py_exe = sys.executable
+                dir_name = os.path.dirname(py_exe)
+                pyw_exe = os.path.join(dir_name, "pythonw.exe")
+                exe = pyw_exe if os.path.isfile(pyw_exe) else py_exe
+                script_path = os.path.abspath(__file__)
+                cmd = f'"{exe}" "{script_path}" --minimized'
+                winreg.SetValueEx(key, REG_RUN_NAME, 0, winreg.REG_SZ, cmd)
+            else:
+                try:
+                    winreg.DeleteValue(key, REG_RUN_NAME)
+                except FileNotFoundError:
+                    pass
+        return True
+    except Exception as e:
+        print(f"Erro ao configurar inicialização no Windows: {e}")
+        return False
+
+
+# -------------------------------------------------------------
+# SERVIDOR UDP MULTI-THREADING (COM SUPORTE A START / STOP)
+# -------------------------------------------------------------
+class UDPServer:
+    """Servidor UDP desacoplado que pode ser iniciado, pausado e encerrado dinamicamente."""
+    def __init__(self, host=HOST, port=PORT, on_event=None):
+        self.host = host
+        self.port = port
+        self.on_event = on_event  # callback(ip, key, action)
+        self.input_ctrl = InputController()
+        self.sock = None
+        self.is_running = False
+        self._thread = None
+        self.commands_count = 0
+        self.last_command = "Nenhum comando ainda"
+
+    def start(self):
+        if self.is_running:
+            return
+        try:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            if hasattr(socket, 'SO_REUSEADDR'):
+                self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.sock.bind((self.host, self.port))
+            self.sock.settimeout(0.5)
+            self.is_running = True
+            self._thread = threading.Thread(target=self._run_loop, daemon=True)
+            self._thread.start()
+            print(f"[UDPServer] Servidor iniciado na porta {self.port}.")
+        except Exception as e:
+            self.is_running = False
+            if self.sock:
+                try:
+                    self.sock.close()
+                except Exception:
+                    pass
+                self.sock = None
+            raise e
+
+    def _run_loop(self):
+        while self.is_running:
+            try:
+                data, addr = self.sock.recvfrom(1024)
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            except Exception:
+                continue
+
             try:
                 message = json.loads(data.decode('utf-8'))
                 key = message.get('key')
@@ -429,29 +534,522 @@ def start_server():
 
                 if key and action:
                     key = str(key).lower()
-
                     if action == 'down':
-                        input_ctrl.press(key)
-                        print(f"[{addr[0]}] TECLA EXTRA PRESSIONADA (Down) : {key.upper()}")
+                        self.input_ctrl.press(key)
                     elif action == 'up':
-                        input_ctrl.release(key)
-                        print(f"[{addr[0]}] TECLA EXTRA SOLTA (Up)       : {key.upper()}")
+                        self.input_ctrl.release(key)
                     elif action == 'tap':
-                        input_ctrl.press(key)
-                        input_ctrl.release(key)
-                        print(f"[{addr[0]}] TECLA EXTRA CLICADA (Tap)     : {key.upper()}")
+                        self.input_ctrl.press(key)
+                        self.input_ctrl.release(key)
 
-            except json.JSONDecodeError:
-                print(f"Mensagem inválida recebida de {addr}: {data}")
+                    self.commands_count += 1
+                    timestamp = time.strftime("%H:%M:%S")
+                    self.last_command = f"[{timestamp}] {key.upper()} ({action.capitalize()})"
+                    print(f"[{addr[0]}] {self.last_command}")
+                    if self.on_event:
+                        self.on_event(addr[0], key, action)
             except Exception as e:
-                print(f"Erro ao processar comando para a tecla '{key}': {e}")
+                print(f"[UDPServer] Erro ao processar comando: {e}")
 
+    def stop(self):
+        if not self.is_running:
+            return
+        self.is_running = False
+        if self.sock:
+            try:
+                self.sock.close()
+            except Exception:
+                pass
+            self.sock = None
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=1.0)
+        self._thread = None
+        self.input_ctrl.close()
+        print("[UDPServer] Servidor pausado/desligado.")
+
+
+# -------------------------------------------------------------
+# GERAÇÃO DO ÍCONE DA BANDEJA (SYSTEM TRAY)
+# -------------------------------------------------------------
+def create_tray_image(active=True):
+    """Gera um ícone nítido para a área de notificação/ícones ocultos (64x64 RGBA)."""
+    if not PIL_AVAILABLE:
+        return None
+    img = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    border_color = (46, 204, 113, 255) if active else (231, 76, 60, 255)
+    bg_color = (25, 27, 36, 255)
+
+    # Contorno arredondado estilo botão Stream Deck
+    draw.rounded_rectangle([4, 4, 60, 60], radius=14, fill=bg_color, outline=border_color, width=4)
+
+    # Indicador de estado central
+    if active:
+        draw.ellipse([20, 20, 44, 44], fill=border_color)
+    else:
+        draw.ellipse([22, 22, 42, 42], outline=border_color, width=4)
+
+    return img
+
+
+# -------------------------------------------------------------
+# INTERFACE GRÁFICA MODERNA (TKINTER + SYSTEM TRAY)
+# -------------------------------------------------------------
+class StreamDeckGUI:
+    """Interface moderna, intuitiva e escura para controle do Servidor Host."""
+    def __init__(self, server: UDPServer, start_minimized=False):
+        self.server = server
+        self.start_minimized = start_minimized
+        self.tray_icon = None
+        self.local_ip = get_local_ip()
+
+        self.root = tk.Tk()
+        self.root.title("Stream Deck Companion Host")
+        self.root.geometry("460x540")
+        self.root.resizable(False, False)
+        self.root.configure(bg="#14161f")
+
+        # Define ícone da janela
+        self._set_window_icon()
+
+        # Vincula callbacks do servidor à thread da interface gráfica
+        self.server.on_event = self._on_server_packet_received
+
+        # Intercepta minimize e close do Windows
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close_button)
+        self.root.bind("<Unmap>", self.on_unmap_window)
+
+        self._build_ui()
+        self._init_tray()
+
+        # Inicia o servidor automaticamente ao abrir
+        self._start_server()
+
+        if self.start_minimized:
+            self.root.withdraw()
+
+    def _set_window_icon(self):
+        if PIL_AVAILABLE:
+            try:
+                icon_img = create_tray_image(True)
+                self.tk_icon = ImageTk.PhotoImage(icon_img)
+                self.root.iconphoto(False, self.tk_icon)
+            except Exception:
+                pass
+
+    def _build_ui(self):
+        # 1. Cabeçalho
+        header = tk.Frame(self.root, bg="#1c1f2c", pady=14, padx=16)
+        header.pack(fill="x", padx=12, pady=(12, 8))
+
+        title_frame = tk.Frame(header, bg="#1c1f2c")
+        title_frame.pack(fill="x")
+
+        tk.Label(
+            title_frame,
+            text="STREAM DECK HOST",
+            font=("Segoe UI", 15, "bold"),
+            fg="#ffffff",
+            bg="#1c1f2c"
+        ).pack(side="left")
+
+        # Badge de Administrador
+        is_admin = check_windows_admin()
+        admin_text = "🛡️ ADMIN" if is_admin else "ℹ️ NORMAL"
+        admin_fg = "#2ecc71" if is_admin else "#f39c12"
+        tk.Label(
+            title_frame,
+            text=admin_text,
+            font=("Segoe UI", 9, "bold"),
+            fg=admin_fg,
+            bg="#272b3c",
+            padx=8,
+            pady=2
+        ).pack(side="right")
+
+        tk.Label(
+            header,
+            text="Injeção nativa de hardware / DirectInput para PC",
+            font=("Segoe UI", 9),
+            fg="#8f95a8",
+            bg="#1c1f2c"
+        ).pack(anchor="w", pady=(3, 0))
+
+        # 2. Card de Status e Controle Ligar/Desligar
+        status_card = tk.Frame(self.root, bg="#1e2230", padx=16, pady=14, highlightbackground="#2d3246", highlightthickness=1)
+        status_card.pack(fill="x", padx=12, pady=6)
+
+        status_row = tk.Frame(status_card, bg="#1e2230")
+        status_row.pack(fill="x")
+
+        self.status_dot = tk.Label(status_row, text="●", font=("Segoe UI", 16), fg="#2ecc71", bg="#1e2230")
+        self.status_dot.pack(side="left")
+
+        self.status_text = tk.Label(
+            status_row,
+            text=f"SERVIDOR ATIVO (Porta {self.server.port})",
+            font=("Segoe UI", 11, "bold"),
+            fg="#ffffff",
+            bg="#1e2230"
+        )
+        self.status_text.pack(side="left", padx=(8, 0))
+
+        # Botão principal de Ligar / Desligar
+        self.toggle_btn = tk.Button(
+            status_card,
+            text="⏹ Desligar Servidor",
+            font=("Segoe UI", 11, "bold"),
+            bg="#c0392b",
+            fg="#ffffff",
+            activebackground="#e74c3c",
+            activeforeground="#ffffff",
+            relief="flat",
+            cursor="hand2",
+            pady=8,
+            command=self.toggle_server
+        )
+        self.toggle_btn.pack(fill="x", pady=(12, 0))
+
+        # 3. Card do IP do Computador
+        ip_card = tk.Frame(self.root, bg="#1e2230", padx=16, pady=12, highlightbackground="#2d3246", highlightthickness=1)
+        ip_card.pack(fill="x", padx=12, pady=6)
+
+        tk.Label(
+            ip_card,
+            text="ENDEREÇO IP DO COMPUTADOR (IPv4)",
+            font=("Segoe UI", 9, "bold"),
+            fg="#8f95a8",
+            bg="#1e2230"
+        ).pack(anchor="w")
+
+        ip_row = tk.Frame(ip_card, bg="#1e2230")
+        ip_row.pack(fill="x", pady=(6, 4))
+
+        self.ip_label = tk.Label(
+            ip_row,
+            text=self.local_ip,
+            font=("Consolas", 18, "bold"),
+            fg="#5dade2",
+            bg="#1e2230"
+        )
+        self.ip_label.pack(side="left")
+
+        self.copy_btn = tk.Button(
+            ip_row,
+            text="📋 Copiar",
+            font=("Segoe UI", 9, "bold"),
+            bg="#2c3e50",
+            fg="#ffffff",
+            activebackground="#34495e",
+            activeforeground="#ffffff",
+            relief="flat",
+            cursor="hand2",
+            padx=10,
+            pady=3,
+            command=self.copy_ip
+        )
+        self.copy_btn.pack(side="right", padx=(6, 0))
+
+        self.refresh_btn = tk.Button(
+            ip_row,
+            text="🔄",
+            font=("Segoe UI", 9),
+            bg="#2c3e50",
+            fg="#ffffff",
+            activebackground="#34495e",
+            activeforeground="#ffffff",
+            relief="flat",
+            cursor="hand2",
+            padx=8,
+            pady=3,
+            command=self.refresh_ip
+        )
+        self.refresh_btn.pack(side="right")
+
+        tk.Label(
+            ip_card,
+            text="Insira este IP no aplicativo do celular para conectar instantaneamente.",
+            font=("Segoe UI", 8, "italic"),
+            fg="#70768c",
+            bg="#1e2230"
+        ).pack(anchor="w")
+
+        # 4. Card de Inicialização Automática e Monitor
+        config_card = tk.Frame(self.root, bg="#1e2230", padx=16, pady=12, highlightbackground="#2d3246", highlightthickness=1)
+        config_card.pack(fill="x", padx=12, pady=6)
+
+        self.autostart_var = tk.BooleanVar(value=is_autostart_enabled())
+        autostart_state = "normal" if sys.platform == "win32" and winreg else "disabled"
+        autostart_label = "Iniciar com o Windows (inicia minimizado)" if sys.platform == "win32" else "Iniciar com o sistema (apenas Windows)"
+
+        self.autostart_cb = tk.Checkbutton(
+            config_card,
+            text=autostart_label,
+            variable=self.autostart_var,
+            font=("Segoe UI", 10),
+            fg="#ffffff",
+            bg="#1e2230",
+            selectcolor="#14161f",
+            activebackground="#1e2230",
+            activeforeground="#ffffff",
+            cursor="hand2",
+            state=autostart_state,
+            command=self.on_autostart_toggle
+        )
+        self.autostart_cb.pack(anchor="w")
+
+        # Separador fino
+        tk.Frame(config_card, bg="#2d3246", height=1).pack(fill="x", pady=8)
+
+        # Monitor de Atividade
+        log_row = tk.Frame(config_card, bg="#1e2230")
+        log_row.pack(fill="x")
+
+        tk.Label(
+            log_row,
+            text="Último comando:",
+            font=("Segoe UI", 9, "bold"),
+            fg="#8f95a8",
+            bg="#1e2230"
+        ).pack(side="left")
+
+        self.cmd_label = tk.Label(
+            log_row,
+            text="Nenhum ainda",
+            font=("Consolas", 9, "bold"),
+            fg="#f1c40f",
+            bg="#1e2230"
+        )
+        self.cmd_label.pack(side="left", padx=(8, 0))
+
+        self.count_label = tk.Label(
+            log_row,
+            text="Total: 0",
+            font=("Segoe UI", 9),
+            fg="#8f95a8",
+            bg="#1e2230"
+        )
+        self.count_label.pack(side="right")
+
+        # 5. Barra Inferior de Ações
+        bottom_frame = tk.Frame(self.root, bg="#14161f", pady=8)
+        bottom_frame.pack(fill="x", padx=12, side="bottom")
+
+        tk.Button(
+            bottom_frame,
+            text="⬇ Minimizar para Ícones Ocultos",
+            font=("Segoe UI", 9, "bold"),
+            bg="#252a3d",
+            fg="#ffffff",
+            activebackground="#303750",
+            activeforeground="#ffffff",
+            relief="flat",
+            cursor="hand2",
+            padx=12,
+            pady=6,
+            command=self.minimize_to_tray
+        ).pack(side="left", fill="x", expand=True, padx=(0, 6))
+
+        tk.Button(
+            bottom_frame,
+            text="✕ Sair",
+            font=("Segoe UI", 9, "bold"),
+            bg="#252a3d",
+            fg="#e74c3c",
+            activebackground="#303750",
+            activeforeground="#ff6b6b",
+            relief="flat",
+            cursor="hand2",
+            padx=16,
+            pady=6,
+            command=self.quit_application
+        ).pack(side="right")
+
+    def _init_tray(self):
+        """Inicializa o ícone da bandeja do sistema (system tray)."""
+        if not PYSTRAY_AVAILABLE:
+            print("[AVISO] pystray não disponível. Suporte a ícones ocultos desativado.")
+            return
+
+        menu = pystray.Menu(
+            pystray.MenuItem("Abrir Painel", self.show_window, default=True),
+            pystray.MenuItem(
+                lambda item: "⏹ Desligar Servidor" if self.server.is_running else "▶ Ligar Servidor",
+                self._tray_toggle_server
+            ),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Sair", self.quit_application)
+        )
+
+        icon_image = create_tray_image(self.server.is_running)
+        self.tray_icon = pystray.Icon("stream_deck_host", icon_image, "Stream Deck Host", menu)
+        threading.Thread(target=self.tray_icon.run, daemon=True).start()
+
+    def _update_tray_icon(self):
+        if self.tray_icon and PYSTRAY_AVAILABLE:
+            try:
+                self.tray_icon.icon = create_tray_image(self.server.is_running)
+                status_str = "Ativo" if self.server.is_running else "Parado"
+                self.tray_icon.title = f"Stream Deck Host ({status_str})"
+            except Exception:
+                pass
+
+    def _start_server(self):
+        try:
+            self.server.start()
+            self._update_ui_server_state(True)
+        except Exception as e:
+            self._update_ui_server_state(False)
+            messagebox.showerror("Erro ao Iniciar", f"Não foi possível iniciar o servidor na porta {self.server.port}:\n{e}")
+
+    def _stop_server(self):
+        self.server.stop()
+        self._update_ui_server_state(False)
+
+    def toggle_server(self):
+        if self.server.is_running:
+            self._stop_server()
+        else:
+            self._start_server()
+
+    def _tray_toggle_server(self, icon=None, item=None):
+        self.root.after(0, self.toggle_server)
+
+    def _update_ui_server_state(self, running: bool):
+        if running:
+            self.status_dot.config(text="●", fg="#2ecc71")
+            self.status_text.config(text=f"SERVIDOR ATIVO (Porta {self.server.port})", fg="#ffffff")
+            self.toggle_btn.config(text="⏹ Desligar Servidor", bg="#c0392b", activebackground="#e74c3c")
+        else:
+            self.status_dot.config(text="○", fg="#e74c3c")
+            self.status_text.config(text="SERVIDOR DESLIGADO", fg="#a0a5b8")
+            self.toggle_btn.config(text="▶ Ligar Servidor", bg="#27ae60", activebackground="#2ecc71")
+
+        self._update_tray_icon()
+
+    def _on_server_packet_received(self, ip: str, key: str, action: str):
+        # Atualiza a UI na thread do Tkinter
+        self.root.after(0, self._update_packet_labels, key, action)
+
+    def _update_packet_labels(self, key: str, action: str):
+        self.cmd_label.config(text=f"{key.upper()} ({action})")
+        self.count_label.config(text=f"Total: {self.server.commands_count}")
+
+    def copy_ip(self):
+        self.root.clipboard_clear()
+        self.root.clipboard_append(self.local_ip)
+        self.copy_btn.config(text="✓ Copiado!", bg="#27ae60")
+        self.root.after(1500, lambda: self.copy_btn.config(text="📋 Copiar", bg="#2c3e50"))
+
+    def refresh_ip(self):
+        self.local_ip = get_local_ip()
+        self.ip_label.config(text=self.local_ip)
+
+    def on_autostart_toggle(self):
+        enabled = self.autostart_var.get()
+        success = set_autostart(enabled)
+        if not success:
+            self.autostart_var.set(not enabled)
+            messagebox.showwarning("Aviso", "Não foi possível atualizar a chave de inicialização no Registro do Windows.")
+
+    def minimize_to_tray(self):
+        """Oculta a janela principal e a remove da barra de tarefas."""
+        self.root.withdraw()
+        if self.tray_icon:
+            try:
+                self.tray_icon.notify("O servidor continua ativo em segundo plano.", "Stream Deck Host")
+            except Exception:
+                pass
+
+    def on_unmap_window(self, event):
+        """Minimiza para a bandeja ao clicar no botão '-' (minimizar) da barra de título."""
+        if event.widget == self.root and self.root.state() == "iconic":
+            self.root.withdraw()
+
+    def on_close_button(self):
+        """Ao clicar no 'X', minimiza para a bandeja ao invés de fechar."""
+        if self.tray_icon:
+            self.minimize_to_tray()
+        else:
+            self.quit_application()
+
+    def show_window(self, icon=None, item=None):
+        """Restaura a janela para o primeiro plano."""
+        self.root.after(0, self._restore_window)
+
+    def _restore_window(self):
+        self.root.deiconify()
+        self.root.lift()
+        self.root.focus_force()
+
+    def quit_application(self, icon=None, item=None):
+        """Encerra completamente o servidor e a aplicação."""
+        self.server.stop()
+        if self.tray_icon:
+            try:
+                self.tray_icon.stop()
+            except Exception:
+                pass
+        self.root.after(0, self.root.destroy)
+
+    def run(self):
+        self.root.mainloop()
+
+
+# -------------------------------------------------------------
+# PONTO DE ENTRADA DO PROGRAMA
+# -------------------------------------------------------------
+def start_server_cli(host=HOST, port=PORT):
+    """Modo CLI clássico sem interface gráfica."""
+    server = UDPServer(host=host, port=port)
+    server.start()
+
+    print("=================================================")
+    print(f" Servidor UDP iniciado em {host}:{port}")
+    if server.input_ctrl.mode == "windows":
+        is_admin = check_windows_admin()
+        print(" [MODO WINDOWS]: Injeção nativa SendInput (DirectInput) ATIVA")
+        if is_admin:
+            print(" [ADMIN]: Executando com privilégios de Administrador.")
+        else:
+            print(" [AVISO]: Executando como usuário comum.")
+    elif server.input_ctrl.mode == "linux_x11":
+        print(" [MODO LINUX X11]: Injeção de Teclas Extras F13-F24 ATIVA")
+    print(f" [IP LOCAL]: {get_local_ip()}")
+    print("=================================================")
+    print("Pressione CTRL+C para encerrar.\n")
+
+    try:
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
         print("\nEncerrando servidor...")
     finally:
-        server_socket.close()
-        input_ctrl.close()
+        server.stop()
+
+
+def start_server(host=HOST, port=PORT):
+    """Função legada para compatibilidade retroativa."""
+    start_server_cli(host=host, port=port)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Stream Deck Companion Host Server")
+    parser.add_argument("--cli", action="store_true", help="Executa no terminal sem interface gráfica")
+    parser.add_argument("--minimized", action="store_true", help="Inicia o servidor minimizado na bandeja do sistema")
+    parser.add_argument("--host", default=HOST, help="Endereço IP de escuta (padrão: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=PORT, help="Porta UDP (padrão: 8080)")
+    args = parser.parse_args()
+
+    # Se explicitamente solicitado modo CLI ou se Tkinter não estiver disponível
+    if args.cli or not TK_AVAILABLE:
+        start_server_cli(host=args.host, port=args.port)
+    else:
+        server = UDPServer(host=args.host, port=args.port)
+        gui = StreamDeckGUI(server=server, start_minimized=args.minimized)
+        gui.run()
 
 
 if __name__ == "__main__":
-    start_server()
+    main()

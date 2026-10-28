@@ -65,12 +65,21 @@ keyboard_app/
 
 #### A. Servidor Host Python (`server/`)
 1. **`server/requirements.txt`**:
-   - Inclui `pydirectinput==1.0.4`.
+   - `pydirectinput==1.0.4` (injeção Win32 DirectInput)
+   - `pystray>=0.19.5` (suporte a ícone na bandeja / ícones ocultos do sistema)
+   - `Pillow>=9.5.0` (geração de ícones dinâmicos)
 2. **`server/main.py`**:
-   - Cria um socket UDP vinculado a `0.0.0.0:8080`.
-   - Ajusta `pydirectinput.PAUSE = 0.0` para desativar qualquer latência imposta pela biblioteca.
-   - Interpreta ações `"down"` disparando `pydirectinput.keyDown(key)` e `"up"` disparando `pydirectinput.keyUp(key)`.
-   - Tratamento de exceções e `KeyboardInterrupt` para finalização limpa da porta.
+   - **Interface Gráfica Integrada (`StreamDeckGUI`)**:
+     - Botão Ligar/Desligar Servidor em tempo real sem fechar o programa.
+     - Detecção automática e exibição em destaque do IPv4 local com botão de cópia de 1 clique (`📋 Copiar`).
+     - Checkbox para alternar inicialização automática com o Windows via registro `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
+     - Monitor em tempo real do último comando e total de pacotes recebidos.
+     - Suporte a execução em segundo plano / ícones ocultos (`pystray` + `root.withdraw()`).
+     - Modos flexíveis: interface gráfica padrão, `--minimized` (para startup silencioso na bandeja) e `--cli` (para execução pura no terminal).
+   - Injeção de hardware a nível de SO (`ctypes.windll.user32.SendInput` para teclas F13-F24, Numpad scancodes, navegação e multimídia).
+   - Compatibilidade multiplataforma (Windows Win32 + Linux X11 fallback).
+3. **`server/test_server.py`**:
+   - 16 testes unitários cobrindo ABI C ctypes, SendInput, scancodes de Numpad e F13-F24, ciclo de vida do servidor UDP, detecção de IP e registro de inicialização.
 
 #### B. App Flutter (`app/`)
 1. **`app/pubspec.yaml`**:
@@ -105,8 +114,10 @@ keyboard_app/
    ```powershell
    python main.py
    ```
-3. *Atenção Firewall:* No primeiro uso, permita a execução de rede do Python no Firewall do Windows.
-4. Descubra o IPv4 do PC via `ipconfig` (exemplo: `192.168.1.15`).
+   *(Ou execute `python main.py --cli` se preferir modo terminal clássico sem interface gráfica).*
+3. A interface abrirá exibindo o **IP do Computador** e o status **ATIVO**.
+4. Para não ocupar espaço na barra de tarefas, clique em **"Minimizar para Ícones Ocultos"** (ou minimize/feche a janela). O servidor continuará escutando os comandos no plano de fundo na bandeja do Windows.
+5. Marque a caixa **"Iniciar com o Windows"** caso deseje que o servidor suba automaticamente minimizado na bandeja ao ligar o PC.
 
 ### No Smartphone (App Flutter)
 1. Gere os arquivos de build da plataforma (caso ainda não tenham sido gerados na máquina local):

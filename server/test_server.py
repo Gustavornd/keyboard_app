@@ -19,6 +19,11 @@ from main import (
     build_win_input,
     InputController,
     LPINPUT,
+    UDPServer,
+    get_local_ip,
+    create_tray_image,
+    is_autostart_enabled,
+    set_autostart,
 )
 
 class TestServerWin32Structures(unittest.TestCase):
@@ -265,7 +270,63 @@ class TestServerWin32Structures(unittest.TestCase):
             ('release', 'numpad_1'),
         ])
 
+    def test_get_local_ip(self):
+        """Verifica se get_local_ip retorna um endereço IPv4 válido."""
+        ip = get_local_ip()
+        self.assertIsInstance(ip, str)
+        parts = ip.split('.')
+        self.assertEqual(len(parts), 4)
+        for p in parts:
+            self.assertTrue(p.isdigit())
+            self.assertTrue(0 <= int(p) <= 255)
+
+    def test_udp_server_lifecycle(self):
+        """Testa inicialização, envio de pacotes e encerramento do UDPServer."""
+        received = []
+        def on_event(ip, key, action):
+            received.append((ip, key, action))
+
+        # Usa porta 0 para alocação dinâmica pelo SO
+        server = UDPServer(host='127.0.0.1', port=0, on_event=on_event)
+        server.start()
+        self.assertTrue(server.is_running)
+        self.assertIsNotNone(server.sock)
+        actual_port = server.sock.getsockname()[1]
+
+        # Envia comando de teste
+        client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        client.sendto(json.dumps({'key': 'F14', 'action': 'down'}).encode('utf-8'), ('127.0.0.1', actual_port))
+        time.sleep(0.1)
+
+        server.stop()
+        client.close()
+        self.assertFalse(server.is_running)
+        self.assertIsNone(server.sock)
+        self.assertEqual(len(received), 1)
+        self.assertEqual(received[0][1], 'f14')
+        self.assertEqual(received[0][2], 'down')
+
+    def test_create_tray_image(self):
+        """Testa geração do ícone da bandeja em estados ativo e inativo."""
+        img_active = create_tray_image(active=True)
+        img_inactive = create_tray_image(active=False)
+        self.assertIsNotNone(img_active)
+        self.assertIsNotNone(img_inactive)
+        self.assertEqual(img_active.size, (64, 64))
+        self.assertEqual(img_inactive.size, (64, 64))
+
+    def test_autostart_registry_toggle(self):
+        """Verifica integridade de leitura e escrita do autostart no Windows."""
+        if sys.platform != 'win32':
+            self.skipTest('Teste de registro exclusivo para Windows')
+
+        initial_state = is_autostart_enabled()
+        try:
+            self.assertTrue(set_autostart(not initial_state))
+            self.assertEqual(is_autostart_enabled(), not initial_state)
+        finally:
+            set_autostart(initial_state)
+            self.assertEqual(is_autostart_enabled(), initial_state)
+
 if __name__ == '__main__':
     unittest.main()
-
-
