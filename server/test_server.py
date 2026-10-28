@@ -306,6 +306,39 @@ class TestServerWin32Structures(unittest.TestCase):
         self.assertEqual(received[0][1], 'f14')
         self.assertEqual(received[0][2], 'down')
 
+    def test_udp_server_discovery(self):
+        """Testa o protocolo de auto-descoberta (discover -> discover_ack)."""
+        received_events = []
+        def on_event(ip, key, action):
+            received_events.append((ip, key, action))
+
+        server = UDPServer(host='127.0.0.1', port=0, on_event=on_event)
+        server.start()
+        actual_port = server.sock.getsockname()[1]
+
+        client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        client.settimeout(1.0)
+        client.sendto(
+            json.dumps({'type': 'discover', 'client': 'StreamDeckApp', 'version': 1}).encode('utf-8'),
+            ('127.0.0.1', actual_port)
+        )
+
+        try:
+            data, addr = client.recvfrom(1024)
+            response = json.loads(data.decode('utf-8'))
+            self.assertEqual(response.get('type'), 'discover_ack')
+            self.assertEqual(response.get('server_name'), socket.gethostname())
+            self.assertEqual(response.get('port'), actual_port)
+            self.assertEqual(response.get('protocol'), 'streamdeck_v1')
+            self.assertIn('.', response.get('ip'))
+        finally:
+            server.stop()
+            client.close()
+
+        self.assertEqual(len(received_events), 1)
+        self.assertEqual(received_events[0][1], 'DESCOBERTA')
+        self.assertEqual(received_events[0][2], 'OK')
+
     def test_create_tray_image(self):
         """Testa geração do ícone da bandeja em estados ativo e inativo."""
         img_active = create_tray_image(active=True)

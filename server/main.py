@@ -542,6 +542,7 @@ class UDPServer:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             if hasattr(socket, 'SO_REUSEADDR'):
                 self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             self.sock.bind((self.host, self.port))
             self.sock.settimeout(0.5)
             self.is_running = True
@@ -571,6 +572,29 @@ class UDPServer:
 
             try:
                 message = json.loads(data.decode('utf-8'))
+
+                # Requisição de Descoberta Automática (Auto-Discovery via UDP Broadcast)
+                if message.get('type') == 'discover':
+                    effective_port = self.port if self.port != 0 else self.sock.getsockname()[1]
+                    reply = json.dumps({
+                        'type': 'discover_ack',
+                        'server_name': socket.gethostname(),
+                        'ip': get_local_ip(),
+                        'port': effective_port,
+                        'protocol': 'streamdeck_v1'
+                    }).encode('utf-8')
+                    try:
+                        self.sock.sendto(reply, addr)
+                    except Exception as err:
+                        print(f"[UDPServer] Falha ao enviar resposta de descoberta: {err}")
+                    timestamp = time.strftime("%H:%M:%S")
+                    self.commands_count += 1
+                    self.last_command = f"[{timestamp}] DESCOBERTA (Atendida)"
+                    print(f"[{addr[0]}] {self.last_command} para {socket.gethostname()}")
+                    if self.on_event:
+                        self.on_event(addr[0], 'DESCOBERTA', 'OK')
+                    continue
+
                 key = message.get('key')
                 action = message.get('action')
 

@@ -57,7 +57,11 @@ keyboard_app/
     ├── pubspec.yaml                       # Dependências do app (shared_preferences)
     ├── android/
     │   └── app/src/main/AndroidManifest.xml # Permissões de rede Android 12+
+    ├── test/
+    │   ├── discovery_test.dart            # Testes de integração e modelo de auto-descoberta
+    │   └── widget_test.dart               # Testes de widgets, perfis e modos de teclas
     └── lib/
+        ├── discovery_service.dart         # Serviço de UDP broadcast e busca de hosts
         └── main.dart                      # UI Grid, GestureDetector e gerenciamento de socket UDP
 ```
 
@@ -158,7 +162,7 @@ Ao continuar ou evoluir este repositório, atente-se às seguintes regras e rest
 
 ## 6. Próximos Passos Sugeridos / Backlog de Evolução
 
-- [ ] **Feedback Háptico**: Adicionar `HapticFeedback.lightImpact()` ao tocar nos botões do Flutter.
-- [ ] **Múltiplos Perfis / Layouts**: Permitir alternar layouts pré-definidos (Perfil "Euro Truck", Perfil "Minecraft", Perfil "Flight Sim").
-- [ ] **Descoberta Automática de Host**: Implementar broadcast UDP para que o app descubra o IP do PC automaticamente sem necessidade de digitação manual.
+- [x] **Feedback Háptico**: Adicionar `HapticFeedback.lightImpact()` ao tocar nos botões do Flutter.
+- [x] **Múltiplos Perfis / Layouts**: Permitir alternar layouts pré-definidos (Generic F13-F24, Numpad, Six Pack e Custom Views).
+- [x] **Descoberta Automática de Host**: Implementado via UDP Broadcast bidirecional (Auto-Discovery no boot, modal interativo e suporte a subnet broadcast).
 - [ ] **Suporte a Macros**: Permitir envio de combinações de teclas sequenciais com temporizador configurável.

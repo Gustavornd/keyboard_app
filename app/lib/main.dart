@@ -3,13 +3,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'discovery_service.dart';
 
 void main() {
   runApp(const StreamDeckApp());
 }
 
 class StreamDeckApp extends StatelessWidget {
-  const StreamDeckApp({super.key});
+  final bool autoDiscover;
+  const StreamDeckApp({super.key, this.autoDiscover = true});
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +25,7 @@ class StreamDeckApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const DeckScreen(),
+      home: DeckScreen(autoDiscover: autoDiscover),
     );
   }
 }
@@ -66,7 +68,8 @@ class DeckProfile {
 }
 
 class DeckScreen extends StatefulWidget {
-  const DeckScreen({super.key});
+  final bool autoDiscover;
+  const DeckScreen({super.key, this.autoDiscover = true});
 
   @override
   State<DeckScreen> createState() => _DeckScreenState();
@@ -75,6 +78,9 @@ class DeckScreen extends StatefulWidget {
 class _DeckScreenState extends State<DeckScreen> {
   String _serverIp = '192.168.1.100';
   final int _serverPort = 8080;
+  String? _serverHostName;
+  bool _isSearchingHost = false;
+  bool _isHostDiscovered = false;
   RawDatagramSocket? _udpSocket;
   final Set<String> _pressedKeys = {};
   DeckMode _currentMode = DeckMode.generic;
@@ -179,6 +185,7 @@ class _DeckScreenState extends State<DeckScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _serverIp = prefs.getString('serverIp') ?? '192.168.1.100';
+      _serverHostName = prefs.getString('serverHostName');
       final modeStr = prefs.getString('deckMode') ?? 'generic';
       if (modeStr == 'numpad') {
         _currentMode = DeckMode.numpad;
@@ -218,6 +225,12 @@ class _DeckScreenState extends State<DeckScreen> {
         }
       }
     });
+
+    // Inicia auto-descoberta em segundo plano ao abrir o app (quando habilitado e fora de testes)
+    final isTest = Platform.environment.containsKey('FLUTTER_TEST');
+    if (widget.autoDiscover && !isTest) {
+      _autoDiscoverHost(silent: true);
+    }
   }
 
   Future<void> _saveProfiles() async {
@@ -231,12 +244,79 @@ class _DeckScreenState extends State<DeckScreen> {
     }
   }
 
-  Future<void> _saveIp(String ip) async {
+  Future<void> _saveIpAndHost(String ip, [String? hostName]) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('serverIp', ip);
+    if (hostName != null && hostName.isNotEmpty) {
+      await prefs.setString('serverHostName', hostName);
+    } else {
+      await prefs.remove('serverHostName');
+    }
     setState(() {
       _serverIp = ip;
+      _serverHostName = hostName;
     });
+  }
+
+  Future<void> _saveIp(String ip) async {
+    await _saveIpAndHost(ip, null);
+  }
+
+  Future<void> _autoDiscoverHost({bool silent = false}) async {
+    if (_isSearchingHost) return;
+    setState(() {
+      _isSearchingHost = true;
+    });
+
+    try {
+      final service = DiscoveryService(targetPort: _serverPort);
+      final hosts = await service.searchHosts(timeout: const Duration(milliseconds: 1500));
+      if (!mounted) return;
+
+      if (hosts.isNotEmpty) {
+        final matchingHost = hosts.firstWhere(
+          (h) => h.ip == _serverIp,
+          orElse: () => hosts.first,
+        );
+
+        await _saveIpAndHost(matchingHost.ip, matchingHost.name);
+        setState(() {
+          _isHostDiscovered = true;
+        });
+
+        if (!silent && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Conectado a ${matchingHost.name} (${matchingHost.ip})'),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Colors.teal.shade700,
+            ),
+          );
+        }
+      } else {
+        setState(() {
+          _isHostDiscovered = false;
+        });
+        if (!silent && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Nenhum servidor encontrado na rede local.'),
+              duration: Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Erro na auto-descoberta: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSearchingHost = false;
+        });
+      }
+    }
   }
 
   Future<void> _setDeckMode(DeckMode mode) async {
@@ -737,34 +817,159 @@ class _DeckScreenState extends State<DeckScreen> {
 
   void _showConfigModal() {
     final TextEditingController ipController = TextEditingController(text: _serverIp);
+    List<DiscoveredHost> modalDiscoveredHosts = [];
+    bool isScanning = false;
+
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Conexão com o PC'),
-          content: TextField(
-            controller: ipController,
-            decoration: const InputDecoration(
-              labelText: 'Endereço IP do Computador',
-              hintText: 'ex: 192.168.1.15',
-              prefixIcon: Icon(Icons.wifi),
-              border: OutlineInputBorder(),
-            ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () {
-                _saveIp(ipController.text.trim());
-                Navigator.pop(context);
-              },
-              child: const Text('Salvar'),
-            ),
-          ],
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> runScan() async {
+              setModalState(() {
+                isScanning = true;
+                modalDiscoveredHosts.clear();
+              });
+
+              try {
+                final service = DiscoveryService(targetPort: _serverPort);
+                final found = await service.searchHosts(timeout: const Duration(milliseconds: 1800));
+                if (dialogCtx.mounted) {
+                  setModalState(() {
+                    modalDiscoveredHosts = found;
+                    isScanning = false;
+                  });
+                }
+              } catch (_) {
+                if (dialogCtx.mounted) {
+                  setModalState(() {
+                    isScanning = false;
+                  });
+                }
+              }
+            }
+
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.devices_rounded, size: 22),
+                  SizedBox(width: 8),
+                  Text('Conexão com o PC'),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Botão de busca automática na rede
+                    FilledButton.tonalIcon(
+                      onPressed: isScanning ? null : runScan,
+                      icon: isScanning
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.radar_rounded),
+                      label: Text(isScanning ? 'Procurando PC na rede...' : 'Buscar PC na Rede Local'),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Lista de servidores encontrados
+                    if (modalDiscoveredHosts.isNotEmpty) ...[
+                      const Text(
+                        'Computadores Encontrados:',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.greenAccent),
+                      ),
+                      const SizedBox(height: 6),
+                      ...modalDiscoveredHosts.map((h) {
+                        final isCurrent = h.ip == _serverIp;
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 6),
+                          color: isCurrent ? Colors.teal.withValues(alpha: 0.2) : null,
+                          child: ListTile(
+                            dense: true,
+                            leading: Icon(
+                              Icons.computer_rounded,
+                              color: isCurrent ? Colors.greenAccent : Colors.white70,
+                            ),
+                            title: Text(h.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text('${h.ip}:${h.port}'),
+                            trailing: isCurrent
+                                ? const Chip(
+                                    label: Text('Ativo', style: TextStyle(fontSize: 10)),
+                                    padding: EdgeInsets.zero,
+                                    visualDensity: VisualDensity.compact,
+                                  )
+                                : OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                    ),
+                                    onPressed: () {
+                                      _saveIpAndHost(h.ip, h.name);
+                                      setState(() {
+                                        _isHostDiscovered = true;
+                                      });
+                                      Navigator.pop(dialogCtx);
+                                    },
+                                    child: const Text('Conectar'),
+                                  ),
+                          ),
+                        );
+                      }),
+                      const Divider(height: 24),
+                    ] else if (!isScanning) ...[
+                      const SizedBox(height: 4),
+                    ],
+
+                    // Configuração manual / Cabo USB
+                    const Text(
+                      'Ou digite o IP manualmente:',
+                      style: TextStyle(fontSize: 12, color: Colors.white70),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: ipController,
+                      decoration: const InputDecoration(
+                        labelText: 'Endereço IP do Computador',
+                        hintText: 'ex: 192.168.1.15 ou 127.0.0.1',
+                        prefixIcon: Icon(Icons.wifi),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Dica: Para conexão via cabo USB, use 127.0.0.1 e execute "adb reverse tcp:8080 tcp:8080" no PC.',
+                      style: TextStyle(fontSize: 11, color: Colors.white38),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final manualIp = ipController.text.trim();
+                    if (manualIp.isNotEmpty) {
+                      _saveIp(manualIp);
+                      setState(() {
+                        _isHostDiscovered = false;
+                      });
+                    }
+                    Navigator.pop(dialogCtx);
+                  },
+                  child: const Text('Salvar'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -984,18 +1189,69 @@ class _DeckScreenState extends State<DeckScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
           child: Column(
             children: [
-              // Linha com Host IP
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
+              // Linha com Host IP (Interativa - tocar para buscar ou alterar)
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _showConfigModal,
                   borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'Host PC: $_serverIp:$_serverPort',
-                  style: const TextStyle(color: Colors.white70),
-                  overflow: TextOverflow.ellipsis,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _isHostDiscovered
+                            ? Colors.greenAccent.withValues(alpha: 0.3)
+                            : Colors.white12,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        if (_isSearchingHost)
+                          const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.amberAccent,
+                            ),
+                          )
+                        else
+                          Icon(
+                            Icons.circle,
+                            size: 10,
+                            color: _isHostDiscovered
+                                ? Colors.greenAccent
+                                : Colors.white38,
+                          ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _serverHostName != null
+                                ? 'Host: $_serverHostName ($_serverIp:$_serverPort)'
+                                : 'Host PC: $_serverIp:$_serverPort',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.radar_rounded,
+                          size: 18,
+                          color: _isSearchingHost
+                              ? Colors.amberAccent
+                              : Colors.white38,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
