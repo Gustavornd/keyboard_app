@@ -774,16 +774,6 @@ class StreamDeckGUI:
         )
         self.status_text.pack(side="left", padx=(8, 0))
 
-        # Indicador de estado da bandeja
-        self.tray_indicator_label = tk.Label(
-            status_card,
-            text="Conectando à bandeja do sistema...",
-            font=("Segoe UI", 8),
-            fg="#8f95a8",
-            bg="#1e2230"
-        )
-        self.tray_indicator_label.pack(anchor="w", pady=(4, 0))
-
         # Botão principal de Ligar / Desligar
         self.toggle_btn = tk.Button(
             status_card,
@@ -959,10 +949,6 @@ class StreamDeckGUI:
         """Inicializa o ícone da bandeja do sistema (system tray)."""
         if not PYSTRAY_AVAILABLE or not PIL_AVAILABLE:
             self.tray_icon = None
-            self.tray_indicator_label.config(
-                text="[Aviso] Bandeja indisponível (minimizará na barra de tarefas)",
-                fg="#f39c12"
-            )
             return
 
         menu = pystray.Menu(
@@ -981,17 +967,9 @@ class StreamDeckGUI:
         try:
             # run_detached integra o loop de eventos da bandeja sem bloquear o Tkinter
             self.tray_icon.run_detached()
-            self.tray_indicator_label.config(
-                text="[Ativo] Ícone presente na bandeja de ícones ocultos (^)",
-                fg="#2ecc71"
-            )
         except Exception as e:
             print(f"[ERRO] Falha ao iniciar ícone da bandeja: {e}")
             self.tray_icon = None
-            self.tray_indicator_label.config(
-                text="[Aviso] Falha ao registrar na bandeja (minimizará na barra de tarefas)",
-                fg="#f39c12"
-            )
 
     def _update_tray_icon(self):
         if self.tray_icon:
