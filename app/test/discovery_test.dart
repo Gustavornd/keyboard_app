@@ -7,16 +7,16 @@ void main() {
   group('DiscoveredHost Model', () {
     test('instanciação e propriedades corretas', () {
       final host = DiscoveredHost(
-        name: 'GUS-PC',
+        name: 'StreamDeck-Host',
         ip: '192.168.1.50',
         port: 8080,
       );
 
-      expect(host.name, equals('GUS-PC'));
+      expect(host.name, equals('StreamDeck-Host'));
       expect(host.ip, equals('192.168.1.50'));
       expect(host.port, equals(8080));
       expect(host.protocol, equals('streamdeck_v1'));
-      expect(host.toString(), equals('GUS-PC (192.168.1.50:8080)'));
+      expect(host.toString(), equals('StreamDeck-Host (192.168.1.50:8080)'));
     });
 
     test('igualdade baseada em IP e porta', () {

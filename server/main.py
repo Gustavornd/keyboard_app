@@ -638,26 +638,33 @@ class UDPServer:
 # GERAÇÃO DO ÍCONE DA BANDEJA (SYSTEM TRAY)
 # -------------------------------------------------------------
 def create_tray_image(active=True):
-    """Gera um ícone de alta visibilidade e contraste estilo teclado Stream Deck (64x64 RGBA)."""
+    """Gera o ícone da bandeja a partir da identidade oficial (app_icon) com indicador de status."""
     if not PIL_AVAILABLE:
         return None
-    size = 64
-    img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    base_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    png_path = os.path.join(base_dir, "app_icon.png")
+    ico_path = os.path.join(base_dir, "app_icon.ico")
+
+    img = None
+    for path in [png_path, ico_path]:
+        if os.path.isfile(path):
+            try:
+                img = Image.open(path).convert('RGBA').resize((64, 64), Image.Resampling.LANCZOS)
+                break
+            except Exception:
+                pass
+
+    if img is None:
+        # Fallback gerado programaticamente caso a imagem não esteja no disco
+        img = Image.new('RGBA', (64, 64), (24, 26, 34, 255))
+        draw = ImageDraw.Draw(img)
+        draw.rounded_rectangle([3, 3, 61, 61], radius=14, fill=(24, 26, 34, 255), outline=(46, 204, 113, 255) if active else (231, 76, 60, 255), width=4)
+
     draw = ImageDraw.Draw(img)
-
-    border_color = (46, 204, 113, 255) if active else (231, 76, 60, 255)
-    bg_color = (24, 26, 34, 255)
-
-    # Contorno arredondado estilo chassi do Stream Deck
-    draw.rounded_rectangle([3, 3, 61, 61], radius=14, fill=bg_color, outline=border_color, width=5)
-
-    # 4 botões de atalho internos com alto contraste para visibilidade nítida na bandeja
-    key_color = (255, 255, 255, 255) if active else (180, 180, 180, 255)
-    draw.rounded_rectangle([13, 13, 27, 27], radius=3, fill=key_color)
-    draw.rounded_rectangle([37, 13, 51, 27], radius=3, fill=key_color)
-    draw.rounded_rectangle([13, 37, 27, 51], radius=3, fill=key_color)
-    draw.rounded_rectangle([37, 37, 51, 51], radius=3, fill=key_color)
-
+    # Adiciona pequeno ponto indicador colorido no canto inferior direito
+    # Verde se ativo, Vermelho se inativo
+    dot_color = (46, 204, 113, 255) if active else (231, 76, 60, 255)
+    draw.ellipse([44, 44, 62, 62], fill=dot_color, outline=(0, 0, 0, 255), width=2)
     return img
 
 
@@ -671,6 +678,14 @@ class StreamDeckGUI:
         self.start_minimized = start_minimized
         self.tray_icon = None
         self.local_ip = get_local_ip()
+
+        # Registra AppUserModelID explícito no Windows para que a barra de tarefas
+        # utilize o ícone próprio do aplicativo em vez do ícone padrão do Python
+        if sys.platform == 'win32':
+            try:
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("io.github.streamdeck.host")
+            except Exception:
+                pass
 
         self.root = tk.Tk()
         if self.start_minimized:
@@ -700,22 +715,32 @@ class StreamDeckGUI:
             self.root.after(300, self.minimize_to_tray)
 
     def _set_window_icon(self):
-        # Tenta carregar ícone .ico local ou PhotoImage
-        ico_path = os.path.join(os.path.dirname(__file__), "icon_active.ico")
+        # Localiza o ícone app_icon.ico e app_icon.png (suporta execução direta e PyInstaller)
+        base_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        ico_path = os.path.join(base_dir, "app_icon.ico")
+        png_path = os.path.join(base_dir, "app_icon.png")
+
+        # 1. Tenta definir no Windows via iconbitmap (para a barra de tarefas e título)
         if os.path.isfile(ico_path):
             try:
-                self.root.iconbitmap(ico_path)
-                return
+                self.root.iconbitmap(default=ico_path)
             except Exception:
-                pass
+                try:
+                    self.root.iconbitmap(ico_path)
+                except Exception:
+                    pass
 
+        # 2. Define via iconphoto (para Linux e janelas filhas)
         if PIL_AVAILABLE:
-            try:
-                icon_img = create_tray_image(True)
-                self.tk_icon = ImageTk.PhotoImage(icon_img)
-                self.root.iconphoto(False, self.tk_icon)
-            except Exception:
-                pass
+            for candidate in [png_path, ico_path]:
+                if os.path.isfile(candidate):
+                    try:
+                        icon_img = Image.open(candidate).convert("RGBA").resize((64, 64), Image.Resampling.LANCZOS)
+                        self.tk_icon = ImageTk.PhotoImage(icon_img)
+                        self.root.iconphoto(True, self.tk_icon)
+                        break
+                    except Exception:
+                        pass
 
     def _build_ui(self):
         # 1. Cabeçalho

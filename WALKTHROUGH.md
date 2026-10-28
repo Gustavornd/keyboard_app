@@ -47,11 +47,22 @@ As mensagens são transmitidas como pacotes UDP codificados em UTF-8 no formato 
 ```text
 keyboard_app/
 │
-├── WALKTHROUGH.md                          # [Novo] Este documento de orientação técnica
+├── AGENT.md                                # Guia técnico e regras operacionais para Agentes de IA
+├── WALKTHROUGH.md                          # Guia técnico e histórico de desenvolvimento
+├── icon.jpg                                # Imagem fonte de identidade visual do aplicativo
+│
+├── release/                                # Pacote de Produção
+│   ├── README.md                           # Instruções completas de instalação
+│   ├── StreamDeck.apk                      # APK Android (acesso direto)
+│   ├── android/StreamDeck.apk              # APK para Android 12+
+│   ├── windows/StreamDeckServer.exe        # Standalone EXE para Windows (com ícone nativo)
+│   └── linux/streamdeck-server_1.0.0_all.deb # Pacote .deb nativo para Linux Mint / Ubuntu
 │
 ├── server/                                 # Servidor Host do PC
-│   ├── requirements.txt                   # Dependências Python (pydirectinput)
-│   └── main.py                            # Socket UDP, loop assíncrono e injeção DirectInput
+│   ├── app_icon.ico / app_icon.png        # Ícones multi-resolução derivados de icon.jpg
+│   ├── requirements.txt                   # Dependências Python
+│   ├── main.py                            # Socket UDP, GUI Tkinter, Tray e injeção DirectInput
+│   └── test_server.py                     # Suíte de 17 testes unitários do servidor
 │
 └── app/                                    # Cliente Móvel Flutter
     ├── pubspec.yaml                       # Dependências do app (shared_preferences)
@@ -111,7 +122,7 @@ keyboard_app/
 ### No PC (Servidor Host)
 1. Instale os requisitos:
    ```powershell
-   cd c:\Users\gusta\OneDrive\Documentos\keyboard_app\server
+   cd server
    pip install -r requirements.txt
    ```
 2. Execute o servidor:
@@ -126,7 +137,7 @@ keyboard_app/
 ### No Smartphone (App Flutter)
 1. Gere os arquivos de build da plataforma (caso ainda não tenham sido gerados na máquina local):
    ```powershell
-   cd c:\Users\gusta\OneDrive\Documentos\keyboard_app\app
+   cd app
    flutter create .
    ```
 2. Execute o aplicativo:
@@ -145,6 +156,8 @@ keyboard_app/
 ---
 
 ## 5. Diretrizes para Novos Agentes de IA
+
+Consulte o arquivo [`AGENT.md`](AGENT.md) para a especificação técnica detalhada, arquitetura completa, comandos de teste multiplataforma e regras operacionais.
 
 Ao continuar ou evoluir este repositório, atente-se às seguintes regras e restrições técnicas:
 

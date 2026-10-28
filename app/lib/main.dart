@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -437,8 +438,10 @@ class _DeckScreenState extends State<DeckScreen> {
       }
     });
 
-    // Inicia auto-descoberta em segundo plano ao abrir o app
-    _autoDiscoverHost(silent: true);
+    // Inicia auto-descoberta em segundo plano ao abrir o app (exceto em testes de widgets)
+    if (!kIsWeb && !Platform.environment.containsKey('FLUTTER_TEST')) {
+      _autoDiscoverHost(silent: true);
+    }
   }
 
   Future<void> _saveProfiles() async {
