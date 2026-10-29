@@ -36,6 +36,9 @@ Para testar ou instalar imediatamente sem precisar compilar o código-fonte, uti
   1. Baixe o instalador [release/windows/StreamDeckServer-Setup.exe](release/windows/StreamDeckServer-Setup.exe).
   2. Execute o instalador assistido. Ele cria automaticamente os atalhos no Menu Iniciar e na Área de Trabalho com os ícones oficiais, configura desinstalação limpa no Painel de Controle e inicializa instantaneamente sem extração temporária.
   3. *(Recomendado para jogos com privilégios elevados)*: Ao executar o servidor para simuladores ou jogos executados como Administrador, marque a opção ou execute como Administrador para permissões irrestritas de `SendInput`.
+  > 💡 **Aviso do Windows SmartScreen na primeira execução:**  
+  > Como este software é um projeto open-source independente e sem certificado corporativo pago da Microsoft (\$400/ano), o navegador ou o Windows Defender SmartScreen exibe uma tela azul preventiva (*"O Windows protegeu o seu computador"*).  
+  > **Como prosseguir:** Basta clicar em **"Mais informações"** e em seguida no botão **"Executar assim mesmo"**. O instalador possui metadados oficiais, não utiliza empacotadores intrusivos e seu código-fonte é 100% aberto e auditável neste repositório.
 * **Opção 2 (Executável Portátil Standalone)**:
   1. Baixe o executável [release/windows/StreamDeckServer.exe](release/windows/StreamDeckServer.exe).
   2. Dê um duplo clique para iniciar. O servidor abrirá com o ícone oficial na **Barra de Tarefas do Windows** e exibirá o IP local da máquina.
