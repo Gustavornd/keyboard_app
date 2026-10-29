@@ -45,7 +45,7 @@ As mensagens são transmitidas como pacotes UDP codificados em UTF-8 no formato 
 ## 3. Estrutura de Diretórios e Alterações Realizadas
 
 ```text
-keyboard_app/
+streamdeck_app/
 │
 ├── AGENT.md                                # Guia técnico e regras operacionais para Agentes de IA
 ├── WALKTHROUGH.md                          # Guia técnico e histórico de desenvolvimento

@@ -4,7 +4,7 @@
 #define MyAppName "Stream Deck Server"
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "Stream Deck Companion"
-#define MyAppURL "https://github.com/gustavodiaz7/keyboard_app"
+#define MyAppURL "https://github.com/Gustavornd/streamdeck_app"
 #define MyAppExeName "StreamDeckServer.exe"
 
 [Setup]
@@ -23,6 +23,7 @@ DisableProgramGroupPage=yes
 OutputDir=..\release\windows
 OutputBaseFilename=StreamDeckServer-Setup
 SetupIconFile=app_icon.ico
+LicenseFile=..\LICENSE
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -41,6 +42,8 @@ Name: "startupicon"; Description: "Iniciar automaticamente com o Windows (Startu
 
 [Files]
 Source: "..\dist\StreamDeckServer\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app_icon.ico"

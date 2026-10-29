@@ -22,6 +22,7 @@ from main import (
     UDPServer,
     get_local_ip,
     create_tray_image,
+    PIL_AVAILABLE,
     is_autostart_enabled,
     set_autostart,
 )
@@ -341,6 +342,8 @@ class TestServerWin32Structures(unittest.TestCase):
 
     def test_create_tray_image(self):
         """Testa geração do ícone da bandeja em estados ativo e inativo."""
+        if not PIL_AVAILABLE:
+            self.skipTest('Pillow (PIL) não disponível no ambiente Python atual')
         img_active = create_tray_image(active=True)
         img_inactive = create_tray_image(active=False)
         self.assertIsNotNone(img_active)
