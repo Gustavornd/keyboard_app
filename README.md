@@ -12,7 +12,7 @@ Para testar ou instalar imediatamente sem precisar compilar o código-fonte, uti
 
 | Plataforma | Arquivo para Instalação | Formato |
 | :--- | :--- | :--- |
-| 📱 **Android** | [release/StreamDeck.apk](release/StreamDeck.apk) | APK de release (~48.9 MB) |
+| 📱 **Android** | [release/StreamDeck.apk](release/android/StreamDeck.apk) | APK de release (~48.9 MB) |
 | 🪟 **Windows (Instalador)** | [release/windows/StreamDeckServer-Setup.exe](release/windows/StreamDeckServer-Setup.exe) | Instalador profissional Inno Setup (~25.7 MB) - *Recomendado* |
 | 🪟 **Windows (Portátil)** | [release/windows/StreamDeckServer.exe](release/windows/StreamDeckServer.exe) | Executável portátil standalone (~35.0 MB) |
 | 🪟 **Windows (Zip)** | [release/windows/StreamDeckServer-Windows.zip](release/windows/StreamDeckServer-Windows.zip) | Arquivo zip compactado (~34.7 MB) |
