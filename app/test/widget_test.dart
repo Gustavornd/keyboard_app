@@ -406,4 +406,77 @@ void main() {
     expect(find.text('F13'), findsOneWidget);
     expect(find.text('Num 7'), findsNothing);
   });
+
+  testWidgets('Botoes de Sistema e Utilidades nao aparecem por padrao nas 3 abas principais', (WidgetTester tester) async {
+    configureViewport(tester);
+    await tester.pumpWidget(const StreamDeckApp());
+    await tester.pumpAndSettle();
+
+    // 1. Aba Generic
+    expect(find.text('Mic Mute'), findsNothing);
+    expect(find.text('Calc'), findsNothing);
+    expect(find.text('Print'), findsNothing);
+
+    // 2. Aba Numpad
+    await tester.fling(find.byType(GridView), const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text('Mic Mute'), findsNothing);
+    expect(find.text('Calc'), findsNothing);
+
+    // 3. Aba Six Pack
+    await tester.fling(find.byType(GridView), const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text('Mic Mute'), findsNothing);
+    expect(find.text('Calc'), findsNothing);
+  });
+
+  testWidgets('Adicionar botao de Mic Mute e Utilidades na View Personalizada', (WidgetTester tester) async {
+    configureViewport(tester);
+    await tester.pumpWidget(const StreamDeckApp());
+    await tester.pumpAndSettle();
+
+    // Cria nova view "Controle Live"
+    await tester.tap(find.byTooltip('Open navigation menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Criar Nova View'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Controle Live');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Criar'));
+    await tester.pumpAndSettle();
+
+    // Clica em Adicionar Teclas (+)
+    await tester.tap(find.text('Adicionar Teclas (+)'));
+    await tester.pumpAndSettle();
+
+    // Rola o bottom sheet para encontrar "Mic Mute"
+    final micMuteChip = find.widgetWithText(ActionChip, 'Mic Mute');
+    await tester.scrollUntilVisible(
+      micMuteChip,
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+
+    expect(micMuteChip, findsOneWidget);
+    await tester.tap(micMuteChip);
+    await tester.pumpAndSettle();
+
+    // Fecha modal
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+
+    // Botao Mic Mute agora esta visivel na view personalizada
+    expect(find.text('Mic Mute'), findsOneWidget);
+    expect(find.byIcon(Icons.mic_off_rounded), findsOneWidget);
+
+    // Testa toque no botao
+    final micButton = find.text('Mic Mute');
+    final gesture = await tester.startGesture(tester.getCenter(micButton));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(tester.takeException(), isNull);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 }

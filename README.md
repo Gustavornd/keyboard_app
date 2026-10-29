@@ -24,7 +24,7 @@ Para testar ou instalar imediatamente sem precisar compilar o código-fonte, uti
 ## 🚀 Como Instalar e Usar
 
 ### 1. No Celular Android (App Mobile)
-1. Baixe ou transfira o arquivo [release/StreamDeck.apk](release/StreamDeck.apk) para o smartphone (via WhatsApp, Google Drive, cabo USB ou Telegram).
+1. Baixe ou transfira o arquivo [release/android/StreamDeck.apk](release/android/StreamDeck.apk) para o smartphone (via WhatsApp, Google Drive, cabo USB ou Telegram).
 2. No celular, toque em `StreamDeck.apk` para instalar.
 3. Se o Android exibir o aviso para *"Instalar apps desconhecidos"*, toque em **Configurações** e marque **Permitir desta fonte**.
 4. Conclua a instalação e abra o aplicativo.

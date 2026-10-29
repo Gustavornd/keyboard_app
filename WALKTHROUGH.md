@@ -52,8 +52,6 @@ streamdeck_app/
 ├── icon.jpg                                # Imagem fonte de identidade visual do aplicativo
 │
 ├── release/                                # Pacote de Produção
-│   ├── README.md                           # Instruções completas de instalação
-│   ├── StreamDeck.apk                      # APK Android (acesso direto)
 │   ├── android/StreamDeck.apk              # APK para Android 12+
 │   ├── windows/StreamDeckServer.exe        # Standalone EXE para Windows (com ícone nativo)
 │   └── linux/streamdeck-server_1.0.0_all.deb # Pacote .deb nativo para Linux Mint / Ubuntu

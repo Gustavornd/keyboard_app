@@ -359,12 +359,80 @@ class _DeckScreenState extends State<DeckScreen> {
     },
   ];
 
+  // Botões de Sistema e Utilidades (Exclusivos para Views Personalizadas)
+  static const List<Map<String, dynamic>> _systemButtons = [
+    {
+      'id': 'mic_mute',
+      'defaultLabel': 'Mic Mute',
+      'sub': 'Sistema',
+      'color': Colors.redAccent,
+      'icon': Icons.mic_off_rounded,
+    },
+    {
+      'id': 'print_screen',
+      'defaultLabel': 'Print',
+      'sub': 'Sistema',
+      'color': Colors.blueAccent,
+      'icon': Icons.camera_alt_rounded,
+    },
+    {
+      'id': 'calc',
+      'defaultLabel': 'Calc',
+      'sub': 'Sistema',
+      'color': Colors.cyanAccent,
+      'icon': Icons.calculate_rounded,
+    },
+    {
+      'id': 'browser_home',
+      'defaultLabel': 'Navegador',
+      'sub': 'Sistema',
+      'color': Colors.indigoAccent,
+      'icon': Icons.language_rounded,
+    },
+    {
+      'id': 'file_explorer',
+      'defaultLabel': 'Arquivos',
+      'sub': 'Sistema',
+      'color': Colors.amberAccent,
+      'icon': Icons.folder_open_rounded,
+    },
+    {
+      'id': 'lock_screen',
+      'defaultLabel': 'Bloquear',
+      'sub': 'Sistema',
+      'color': Colors.deepOrangeAccent,
+      'icon': Icons.lock_outline_rounded,
+    },
+    {
+      'id': 'media_stop',
+      'defaultLabel': 'Stop',
+      'sub': 'Mídia',
+      'color': Colors.pinkAccent,
+      'icon': Icons.stop_rounded,
+    },
+    {
+      'id': 'escape',
+      'defaultLabel': 'Esc',
+      'sub': 'Geral',
+      'color': Colors.blueGrey,
+      'icon': Icons.cancel_presentation_rounded,
+    },
+    {
+      'id': 'task_manager',
+      'defaultLabel': 'Tarefas',
+      'sub': 'Sistema',
+      'color': Colors.tealAccent,
+      'icon': Icons.dashboard_customize_rounded,
+    },
+  ];
+
   // Catálogo completo indexado por ID
   static final Map<String, Map<String, dynamic>> _catalog = {
     for (final btn in [
       ..._genericButtons,
       ..._numpadButtons,
-      ..._sixPackButtons
+      ..._sixPackButtons,
+      ..._systemButtons,
     ])
       btn['id'] as String: btn,
   };
@@ -808,6 +876,10 @@ class _DeckScreenState extends State<DeckScreen> {
               {
                 'title': 'Controles de Mídia',
                 'list': _sixPackButtons.sublist(6)
+              },
+              {
+                'title': 'Sistema e Utilidades',
+                'list': _systemButtons
               },
             ];
 

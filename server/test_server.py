@@ -25,6 +25,8 @@ from main import (
     PIL_AVAILABLE,
     is_autostart_enabled,
     set_autostart,
+    toggle_windows_mic_mute,
+    toggle_linux_mic_mute,
 )
 
 class TestServerWin32Structures(unittest.TestCase):
@@ -363,6 +365,28 @@ class TestServerWin32Structures(unittest.TestCase):
         finally:
             set_autostart(initial_state)
             self.assertEqual(is_autostart_enabled(), initial_state)
+
+    def test_new_system_keys_config(self):
+        """Verifica se as novas teclas de utilidades e sistema estão configuradas no WIN_KEY_CONFIG."""
+        system_keys = ['print_screen', 'print', 'calc', 'calculator', 'browser_home', 'browser', 'escape', 'esc', 'tab']
+        for k in system_keys:
+            self.assertIn(k, WIN_KEY_CONFIG)
+            vk, scan, is_ext, use_scan = WIN_KEY_CONFIG[k]
+            self.assertGreater(vk, 0)
+
+    def test_special_system_actions_dispatch(self):
+        """Testa o acionamento de comandos de sistema (mic_mute, file_explorer, task_manager) com retorno booleano."""
+        ctrl = InputController()
+        # mic_mute
+        res = ctrl._execute_special_action('mic_mute')
+        self.assertIsInstance(res, bool)
+        # file_explorer
+        res_exp = ctrl._execute_special_action('file_explorer')
+        self.assertIsInstance(res_exp, bool)
+        # task_manager
+        res_tm = ctrl._execute_special_action('task_manager')
+        self.assertIsInstance(res_tm, bool)
+        ctrl.close()
 
 if __name__ == '__main__':
     unittest.main()

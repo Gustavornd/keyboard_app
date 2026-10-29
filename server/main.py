@@ -204,6 +204,17 @@ WIN_KEY_CONFIG = {
     'volume_mute': (0xAD, 0x20, True, False),
     'volume_up': (0xAF, 0x30, True, False),
     'volume_down': (0xAE, 0x2E, True, False),
+
+    # Teclas de Sistema e Utilidades
+    'print_screen': (0x2C, 0x54, False, False),
+    'print': (0x2C, 0x54, False, False),
+    'calc': (0xB7, 0x21, True, False),
+    'calculator': (0xB7, 0x21, True, False),
+    'browser_home': (0xAC, 0x32, True, False),
+    'browser': (0xAC, 0x32, True, False),
+    'escape': (0x1B, 0x01, False, True),
+    'esc': (0x1B, 0x01, False, True),
+    'tab': (0x09, 0x0F, False, True),
 }
 
 def build_win_input(vk: int, scan: int, is_extended: bool, is_up: bool, use_scancode: bool) -> INPUT:
@@ -224,6 +235,105 @@ def build_win_input(vk: int, scan: int, is_extended: bool, is_up: bool, use_scan
         dwExtraInfo=0
     )
     return INPUT(type=INPUT_KEYBOARD, ki=ki)
+
+
+def toggle_windows_mic_mute() -> bool:
+    """Alterna o mudo do microfone padrão no Windows via Core Audio WASAPI (IAudioEndpointVolume)."""
+    if sys.platform != 'win32':
+        return False
+    try:
+        from ctypes import wintypes, Structure, c_int, c_void_p, POINTER, byref
+
+        class GUID(Structure):
+            _fields_ = [
+                ('Data1', wintypes.DWORD),
+                ('Data2', wintypes.WORD),
+                ('Data3', wintypes.WORD),
+                ('Data4', wintypes.BYTE * 8)
+            ]
+            def __init__(self, guid_str):
+                super().__init__()
+                ctypes.windll.ole32.CLSIDFromString(ctypes.c_wchar_p(guid_str), byref(self))
+
+        CLSID_MMDeviceEnumerator = GUID('{BCDE0395-E52F-467C-8E3D-C4579291692E}')
+        IID_IMMDeviceEnumerator = GUID('{A95664D2-9614-4F35-A746-DE8DB63617E6}')
+        IID_IAudioEndpointVolume = GUID('{5CDF2C82-841E-4546-9722-0CF74078229A}')
+
+        ctypes.windll.ole32.CoInitialize(None)
+        pEnumerator = c_void_p()
+        hr = ctypes.windll.ole32.CoCreateInstance(
+            byref(CLSID_MMDeviceEnumerator),
+            None,
+            1,  # CLSCTX_INPROC_SERVER
+            byref(IID_IMMDeviceEnumerator),
+            byref(pEnumerator)
+        )
+        if hr != 0:
+            return False
+
+        vtable = ctypes.cast(pEnumerator, POINTER(POINTER(c_void_p))).contents
+        GetDefaultAudioEndpoint_proto = ctypes.WINFUNCTYPE(ctypes.c_long, c_void_p, c_int, c_int, POINTER(c_void_p))
+        GetDefaultAudioEndpoint = GetDefaultAudioEndpoint_proto(vtable[4])
+
+        pDevice = c_void_p()
+        # 1 = eCapture (dispositivo de gravação/microfone), 0 = eConsole
+        hr = GetDefaultAudioEndpoint(pEnumerator, 1, 0, byref(pDevice))
+        if hr != 0:
+            return False
+
+        dev_vtable = ctypes.cast(pDevice, POINTER(POINTER(c_void_p))).contents
+        Activate_proto = ctypes.WINFUNCTYPE(ctypes.c_long, c_void_p, POINTER(GUID), wintypes.DWORD, c_void_p, POINTER(c_void_p))
+        Activate = Activate_proto(dev_vtable[3])
+
+        pVolume = c_void_p()
+        hr = Activate(pDevice, byref(IID_IAudioEndpointVolume), 1, None, byref(pVolume))
+        if hr != 0:
+            return False
+
+        vol_vtable = ctypes.cast(pVolume, POINTER(POINTER(c_void_p))).contents
+        GetMute_proto = ctypes.WINFUNCTYPE(ctypes.c_long, c_void_p, POINTER(wintypes.BOOL))
+        SetMute_proto = ctypes.WINFUNCTYPE(ctypes.c_long, c_void_p, wintypes.BOOL, c_void_p)
+        GetMute = GetMute_proto(vol_vtable[15])
+        SetMute = SetMute_proto(vol_vtable[14])
+
+        current_mute = wintypes.BOOL()
+        if GetMute(pVolume, byref(current_mute)) == 0:
+            new_mute = not current_mute.value
+            SetMute(pVolume, new_mute, None)
+            return True
+        return False
+    except Exception as e:
+        print(f"AVISO [Windows]: Falha ao alternar mudo do microfone: {e}")
+        return False
+
+
+def toggle_linux_mic_mute() -> bool:
+    """Alterna o mudo do microfone no Linux via pactl (PulseAudio/PipeWire) ou amixer."""
+    if not sys.platform.startswith('linux'):
+        return False
+    # 1. pactl (PulseAudio / PipeWire - padrão no Linux Mint / Ubuntu)
+    try:
+        res = subprocess.run(
+            ['pactl', 'set-source-mute', '@DEFAULT_SOURCE@', 'toggle'],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        if res.returncode == 0:
+            return True
+    except Exception:
+        pass
+
+    # 2. amixer (ALSA)
+    try:
+        res = subprocess.run(
+            ['amixer', 'set', 'Capture', 'toggle'],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        if res.returncode == 0:
+            return True
+    except Exception:
+        pass
+
+    return False
 
 
 class InputController:
@@ -328,6 +438,14 @@ class InputController:
                     self._alias_map['volume_mute'] = b'XF86AudioMute'
                     self._alias_map['volume_up'] = b'XF86AudioRaiseVolume'
                     self._alias_map['volume_down'] = b'XF86AudioLowerVolume'
+                    self._alias_map['print_screen'] = b'Print'
+                    self._alias_map['print'] = b'Print'
+                    self._alias_map['calc'] = b'XF86Calculator'
+                    self._alias_map['calculator'] = b'XF86Calculator'
+                    self._alias_map['browser_home'] = b'XF86HomePage'
+                    self._alias_map['browser'] = b'XF86HomePage'
+                    self._alias_map['escape'] = b'Escape'
+                    self._alias_map['esc'] = b'Escape'
                 return
             except Exception as e:
                 print(f"AVISO [Linux]: Não foi possível carregar X11/Xtst: {e}")
@@ -410,8 +528,89 @@ class InputController:
             except Exception:
                 pass
 
+    def _execute_special_action(self, key_str: str) -> bool:
+        """Executa comandos especiais de sistema que requerem lógica além de SendInput."""
+        if key_str in ('mic_mute', 'mute_mic'):
+            if sys.platform.startswith('win'):
+                return toggle_windows_mic_mute()
+            elif sys.platform.startswith('linux'):
+                return toggle_linux_mic_mute()
+            return True
+
+        if key_str in ('lock_screen', 'lock'):
+            if sys.platform.startswith('win'):
+                try:
+                    ctypes.windll.user32.LockWorkStation()
+                    return True
+                except Exception:
+                    return False
+            elif sys.platform.startswith('linux'):
+                try:
+                    subprocess.run(['loginctl', 'lock-session'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    return True
+                except Exception:
+                    try:
+                        subprocess.run(['xdg-screensaver', 'lock'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        return True
+                    except Exception:
+                        return False
+            return True
+
+        if key_str == 'file_explorer':
+            if sys.platform.startswith('win'):
+                try:
+                    VK_LWIN = 0x5B
+                    VK_E = 0x45
+                    inp1 = build_win_input(VK_LWIN, 0x5B, True, False, False)
+                    inp2 = build_win_input(VK_E, 0x12, False, False, False)
+                    inp3 = build_win_input(VK_E, 0x12, False, True, False)
+                    inp4 = build_win_input(VK_LWIN, 0x5B, True, True, False)
+                    arr = (INPUT * 4)(inp1, inp2, inp3, inp4)
+                    self.user32.SendInput(4, arr, ctypes.sizeof(INPUT))
+                    return True
+                except Exception:
+                    return False
+            elif sys.platform.startswith('linux'):
+                try:
+                    subprocess.Popen(['xdg-open', os.path.expanduser('~')])
+                    return True
+                except Exception:
+                    return False
+            return True
+
+        if key_str == 'task_manager':
+            if sys.platform.startswith('win'):
+                try:
+                    VK_CONTROL = 0x11
+                    VK_SHIFT = 0x10
+                    VK_ESCAPE = 0x1B
+                    inp1 = build_win_input(VK_CONTROL, 0x1D, False, False, False)
+                    inp2 = build_win_input(VK_SHIFT, 0x2A, False, False, False)
+                    inp3 = build_win_input(VK_ESCAPE, 0x01, False, False, False)
+                    inp4 = build_win_input(VK_ESCAPE, 0x01, False, True, False)
+                    inp5 = build_win_input(VK_SHIFT, 0x2A, False, True, False)
+                    inp6 = build_win_input(VK_CONTROL, 0x1D, False, True, False)
+                    arr = (INPUT * 6)(inp1, inp2, inp3, inp4, inp5, inp6)
+                    self.user32.SendInput(6, arr, ctypes.sizeof(INPUT))
+                    return True
+                except Exception:
+                    return False
+            elif sys.platform.startswith('linux'):
+                for app in ['gnome-system-monitor', 'mate-system-monitor', 'xfce4-taskmanager', 'htop']:
+                    try:
+                        subprocess.Popen([app])
+                        return True
+                    except Exception:
+                        pass
+                return False
+            return True
+
+        return False
+
     def press(self, key_str):
         self._press_times[key_str] = time.time()
+        if self._execute_special_action(key_str):
+            return
         # Windows
         if self.mode == "windows":
             self._send_win_key(key_str, is_up=False)
@@ -423,9 +622,9 @@ class InputController:
                 self.x11.XFlush(self.display)
 
     def release(self, key_str):
-        # Garante retenção mínima de 50ms para taps ultra-rápidos de celulares,
-        # assegurando que DirectInput (Minecraft) e Streamlabs capturem o evento
         press_time = self._press_times.pop(key_str, None)
+        if key_str in ('mic_mute', 'mute_mic', 'lock_screen', 'lock', 'file_explorer', 'task_manager'):
+            return
         if press_time is not None:
             elapsed = time.time() - press_time
             if elapsed < 0.05:
