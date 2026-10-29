@@ -13,7 +13,8 @@ Para testar ou instalar imediatamente sem precisar compilar o código-fonte, uti
 | Plataforma | Arquivo para Instalação | Formato |
 | :--- | :--- | :--- |
 | 📱 **Android** | [release/StreamDeck.apk](release/StreamDeck.apk) | APK de release (~48.9 MB) |
-| 🪟 **Windows** | [release/windows/StreamDeckServer.exe](release/windows/StreamDeckServer.exe) | Executável portátil standalone (~35.0 MB) |
+| 🪟 **Windows (Instalador)** | [release/windows/StreamDeckServer-Setup.exe](release/windows/StreamDeckServer-Setup.exe) | Instalador profissional Inno Setup (~25.7 MB) - *Recomendado* |
+| 🪟 **Windows (Portátil)** | [release/windows/StreamDeckServer.exe](release/windows/StreamDeckServer.exe) | Executável portátil standalone (~35.0 MB) |
 | 🪟 **Windows (Zip)** | [release/windows/StreamDeckServer-Windows.zip](release/windows/StreamDeckServer-Windows.zip) | Arquivo zip compactado (~34.7 MB) |
 | 🐧 **Linux Mint / Ubuntu** | [release/linux/streamdeck-server_1.0.0_all.deb](release/linux/streamdeck-server_1.0.0_all.deb) | Pacote nativo `.deb` com ícone no Menu Iniciar (~551 KB) |
 | 🐧 **Linux Script** | [release/linux/install.sh](release/linux/install.sh) ou [release/install.sh](release/install.sh) | Script automatizado de instalação via terminal |
@@ -31,10 +32,14 @@ Para testar ou instalar imediatamente sem precisar compilar o código-fonte, uti
 ### 2. No Computador (Servidor Host)
 
 #### No Windows:
-1. Baixe o executável [release/windows/StreamDeckServer.exe](release/windows/StreamDeckServer.exe).
-2. Dê um duplo clique para iniciar. O servidor abrirá com o ícone oficial na **Barra de Tarefas do Windows** e exibirá o IP local da máquina.
-3. *(Recomendado para jogos com privilégios elevados)*: Clique com o botão direito e selecione **"Executar como Administrador"** para garantir permissões de injeção `SendInput` sem restrições de UIPI.
-4. O servidor pode ser minimizado para a **área de ícones ocultos (Bandeja / System Tray)** e possui opção de inicialização automática com o Windows.
+* **Opção 1 (Instalador Oficial - Recomendado)**:
+  1. Baixe o instalador [release/windows/StreamDeckServer-Setup.exe](release/windows/StreamDeckServer-Setup.exe).
+  2. Execute o instalador assistido. Ele cria automaticamente os atalhos no Menu Iniciar e na Área de Trabalho com os ícones oficiais, configura desinstalação limpa no Painel de Controle e inicializa instantaneamente sem extração temporária.
+  3. *(Recomendado para jogos com privilégios elevados)*: Ao executar o servidor para simuladores ou jogos executados como Administrador, marque a opção ou execute como Administrador para permissões irrestritas de `SendInput`.
+* **Opção 2 (Executável Portátil Standalone)**:
+  1. Baixe o executável [release/windows/StreamDeckServer.exe](release/windows/StreamDeckServer.exe).
+  2. Dê um duplo clique para iniciar. O servidor abrirá com o ícone oficial na **Barra de Tarefas do Windows** e exibirá o IP local da máquina.
+  3. O servidor pode ser minimizado para a **área de ícones ocultos (Bandeja / System Tray)** e possui opção de inicialização automática com o Windows.
 
 #### No Linux Mint / Ubuntu:
 * **Opção 1 (1 Clique via GDebi)**:
@@ -72,11 +77,12 @@ Para testar ou instalar imediatamente sem precisar compilar o código-fonte, uti
 ## 🎮 Modos e Recursos do Aplicativo
 
 * **Modo Generic (F13 a F24)**: Teclas de função estendidas que não conflitam com o teclado físico, perfeitas para mapear atalhos no OBS Studio, Discord, Streamlabs ou simuladores.
-* **Modo Numpad Completo**: Teclado numérico de 16 teclas (0 a 9, operadores matemáticos, ponto decimal e enter).
+* **Modo Numpad Completo (Sub-label Dinâmica)**: Teclado numérico de 16 teclas (0 a 9, operadores matemáticos, ponto decimal e enter). Ao renomear uma tecla, a pílula inferior exibe automaticamente a tecla física mapeada no computador.
 * **Modo Six Pack & Multimídia**: Teclas de navegação (Insert, Delete, Home, End, PageUp, PageDown) combinadas com controles de mídia do sistema operacional (Play/Pause, Faixa Anterior/Próxima, Volume +, Volume - e Mute).
-* **Views Personalizadas (Custom Profiles)**: Crie abas com combinações livres de teclas selecionadas do catálogo e defina rótulos próprios para cada jogo ou perfil de trabalho.
-* **Feedback Háptico**: Vibração sutil ao pressionar as teclas na tela.
-* **Detecção Contínua**: Suporte real a segurar teclas (`onTapDown` e `onTapUp`), permitindo acelerar veículos ou manter botões pressionados em simuladores.
+* **Navegação por Swipe (Deslizar)**: Alterne instantaneamente entre as abas Generic, Numpad e Six Pack na Tela Principal apenas deslizando o dedo horizontalmente na tela.
+* **Views Personalizadas (Custom Profiles)**: Crie abas com combinações livres de teclas selecionadas do catálogo e defina rótulos e aliases próprios para cada jogo ou perfil de trabalho.
+* **Feedback Háptico**: Vibração tátil sutil ao acionar cada botão na tela.
+* **Ações de Interruptor e Painel**: Toque rápido para acionar o comando no computador e liberar imediatamente (perfeito para painéis de carros, simuladores de voo e streaming); toque longo para personalizar o rótulo da tecla.
 
 ---
 

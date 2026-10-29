@@ -113,12 +113,17 @@ py -3.11 main.py
 python main.py
 ```
 
-### Compilação do Executável Windows (PyInstaller):
-O executável standalone é gerado com PyInstaller:
-```powershell
-pyinstaller StreamDeckServer.spec
-# O binário de produção gerado deve ser movido para release/windows/StreamDeckServer.exe
-```
+### Compilação do Executável Windows e Instalador Inno Setup:
+1. **Compilar distribuição PyInstaller (`--onedir`):**
+   ```powershell
+   py -3.11 -m PyInstaller --noconfirm StreamDeckServer.spec
+   # Gera a pasta com runtime e executável em dist/StreamDeckServer/
+   ```
+2. **Gerar Instalador Profissional com Inno Setup:**
+   ```powershell
+   & "C:\Users\<user>\AppData\Local\Programs\Inno Setup 6\ISCC.exe" server\installer.iss
+   # O instalador de produção é gerado diretamente em release/windows/StreamDeckServer-Setup.exe
+   ```
 
 ---
 

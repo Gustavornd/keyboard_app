@@ -336,4 +336,74 @@ void main() {
     // Ao excluir o perfil ativo, automaticamente retorna para a Tela Principal
     expect(find.text('Stream Deck Extra Keys'), findsOneWidget);
   });
+
+  testWidgets('Sub-label contextual dinamica na aba Numpad (Opcao 2.A)', (WidgetTester tester) async {
+    configureViewport(tester);
+    await tester.pumpWidget(const StreamDeckApp());
+    await tester.pumpAndSettle();
+
+    // Entra na aba Numpad
+    await tester.tap(find.text('Numpad'));
+    await tester.pumpAndSettle();
+
+    // Antes de renomear: o topo exibe "Num 7" e a pilula exibe "Numpad" (sem duplicacao de "Num 7")
+    expect(find.text('Num 7'), findsOneWidget);
+    expect(find.text('Numpad'), findsWidgets); // no SegmentedButton e nas pilulas dos botoes
+
+    // Renomeia "Num 7" para "Ligar Motor"
+    await tester.longPress(find.text('Num 7'));
+    await tester.pumpAndSettle();
+    expect(find.text('PERSONALIZAR NOME (NUMPAD_7)'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Ligar Motor');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+
+    // Apos renomear: o topo exibe "Ligar Motor" e a pilula agora exibe a tecla fisica "Num 7"!
+    expect(find.text('Ligar Motor'), findsOneWidget);
+    expect(find.text('Num 7'), findsOneWidget); // Agora e a sub-label na pilula inferior!
+  });
+
+  testWidgets('Navegacao por gesto de swipe horizontal na Tela Principal', (WidgetTester tester) async {
+    configureViewport(tester);
+    await tester.pumpWidget(const StreamDeckApp());
+    await tester.pumpAndSettle();
+
+    // Inicia no modo Generic (F13 presente, Num 7 ausente)
+    expect(find.text('F13'), findsOneWidget);
+    expect(find.text('Num 7'), findsNothing);
+
+    // Swipe para a esquerda (proxima aba: Generic -> Numpad)
+    await tester.fling(find.byType(GridView), const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+
+    // Agora esta no modo Numpad
+    expect(find.text('Num 7'), findsOneWidget);
+    expect(find.text('F13'), findsNothing);
+
+    // Swipe para a esquerda novamente (proxima aba: Numpad -> Six Pack)
+    await tester.fling(find.byType(GridView), const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+
+    // Agora esta no modo Six Pack
+    expect(find.text('Insert'), findsOneWidget);
+    expect(find.text('Num 7'), findsNothing);
+
+    // Swipe para a direita (aba anterior: Six Pack -> Numpad)
+    await tester.fling(find.byType(GridView), const Offset(300, 0), 1000);
+    await tester.pumpAndSettle();
+
+    // Voltou para o modo Numpad
+    expect(find.text('Num 7'), findsOneWidget);
+    expect(find.text('Insert'), findsNothing);
+
+    // Swipe para a direita novamente (aba anterior: Numpad -> Generic)
+    await tester.fling(find.byType(GridView), const Offset(300, 0), 1000);
+    await tester.pumpAndSettle();
+
+    // Voltou para o modo Generic
+    expect(find.text('F13'), findsOneWidget);
+    expect(find.text('Num 7'), findsNothing);
+  });
 }

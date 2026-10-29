@@ -84,6 +84,7 @@ class _DeckScreenState extends State<DeckScreen> {
   RawDatagramSocket? _udpSocket;
   final Set<String> _pressedKeys = {};
   DeckMode _currentMode = DeckMode.generic;
+  double _horizontalDragDelta = 0.0;
 
   // Gerenciamento de Perfis / Custom Views
   final List<DeckProfile> _profiles = [];
@@ -551,6 +552,16 @@ class _DeckScreenState extends State<DeckScreen> {
       _currentMode = mode;
       _pressedKeys.clear();
     });
+  }
+
+  void _navigateDeckMode(int direction) {
+    const modes = [DeckMode.generic, DeckMode.numpad, DeckMode.sixPack];
+    final currentIndex = modes.indexOf(_currentMode);
+    if (currentIndex == -1) return;
+    final nextIndex = currentIndex + direction;
+    if (nextIndex >= 0 && nextIndex < modes.length) {
+      _setDeckMode(modes[nextIndex]);
+    }
   }
 
   Future<void> _saveButtonLabel(String id, String newLabel) async {
@@ -1641,40 +1652,73 @@ class _DeckScreenState extends State<DeckScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                // Grade de botões da Tela Principal
+                // Grade de botões da Tela Principal (com suporte a swipe horizontal entre abas)
                 Expanded(
-                  child: GridView.builder(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: _currentMode == DeckMode.numpad ? 4 : 3,
-                      crossAxisSpacing:
-                          _currentMode == DeckMode.numpad ? 8 : 10,
-                      mainAxisSpacing: _currentMode == DeckMode.numpad ? 8 : 10,
-                      childAspectRatio:
-                          _currentMode == DeckMode.numpad ? 0.95 : 1.0,
-                    ),
-                    itemCount: _currentButtons.length,
-                    itemBuilder: (context, index) {
-                      final btn = _currentButtons[index];
-                      final id = btn['id'] as String;
-                      final defaultLabel = btn['defaultLabel'] as String;
-                      final displayLabel = _customLabels[id] ?? defaultLabel;
-                      final sub = btn['sub'] as String;
-                      final color = btn['color'] as Color;
-                      final icon = btn['icon'] as IconData?;
-                      final isPressed = _pressedKeys.contains(id);
-
-                      return _buildExtraKeyButton(
-                        id: id,
-                        label: displayLabel,
-                        defaultLabel: defaultLabel,
-                        sub: sub,
-                        color: color,
-                        icon: icon,
-                        isPressed: isPressed,
-                        onLongPress: () =>
-                            _showRenameDialog(id, displayLabel, defaultLabel),
-                      );
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onHorizontalDragStart: (_) {
+                      _horizontalDragDelta = 0.0;
                     },
+                    onHorizontalDragUpdate: (details) {
+                      _horizontalDragDelta += details.primaryDelta ?? 0.0;
+                    },
+                    onHorizontalDragEnd: (details) {
+                      final velocity = details.primaryVelocity ?? 0.0;
+                      if (velocity < -200 || _horizontalDragDelta < -60) {
+                        // Swipe para a esquerda (próxima aba: Generic -> Numpad -> Six Pack)
+                        _navigateDeckMode(1);
+                      } else if (velocity > 200 || _horizontalDragDelta > 60) {
+                        // Swipe para a direita (aba anterior: Six Pack -> Numpad -> Generic)
+                        _navigateDeckMode(-1);
+                      }
+                      _horizontalDragDelta = 0.0;
+                    },
+                    onHorizontalDragCancel: () {
+                      _horizontalDragDelta = 0.0;
+                    },
+                    child: GridView.builder(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: _currentMode == DeckMode.numpad ? 4 : 3,
+                        crossAxisSpacing:
+                            _currentMode == DeckMode.numpad ? 8 : 10,
+                        mainAxisSpacing: _currentMode == DeckMode.numpad ? 8 : 10,
+                        childAspectRatio:
+                            _currentMode == DeckMode.numpad ? 0.95 : 1.0,
+                      ),
+                      itemCount: _currentButtons.length,
+                      itemBuilder: (context, index) {
+                        final btn = _currentButtons[index];
+                        final id = btn['id'] as String;
+                        final defaultLabel = btn['defaultLabel'] as String;
+                        final customLabel = _customLabels[id];
+                        final isCustomized =
+                            customLabel != null && customLabel.trim().isNotEmpty;
+                        final displayLabel =
+                            isCustomized ? customLabel : defaultLabel;
+                        final defaultSub = btn['sub'] as String;
+                        // Opção 2.A: Sub-label contextual dinâmica na aba Numpad
+                        // Se o botão estiver com o rótulo original, a pílula exibe "Numpad".
+                        // Se for renomeado pelo usuário, exibe a tecla física correspondente (ex: "Num 7").
+                        final sub = (_currentMode == DeckMode.numpad && isCustomized)
+                            ? defaultLabel
+                            : defaultSub;
+                        final color = btn['color'] as Color;
+                        final icon = btn['icon'] as IconData?;
+                        final isPressed = _pressedKeys.contains(id);
+
+                        return _buildExtraKeyButton(
+                          id: id,
+                          label: displayLabel,
+                          defaultLabel: defaultLabel,
+                          sub: sub,
+                          color: color,
+                          icon: icon,
+                          isPressed: isPressed,
+                          onLongPress: () =>
+                              _showRenameDialog(id, displayLabel, defaultLabel),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ] else ...[
@@ -1780,11 +1824,18 @@ class _DeckScreenState extends State<DeckScreen> {
                             final defaultLabel =
                                 btnDef['defaultLabel'] as String;
                             // Alias contextual do perfil prevalece; se não houver, usa label global ou padrão
-                            final displayLabel =
+                            final keyCustomLabel =
                                 activeProf.customLabels[keyId] ??
-                                    _customLabels[keyId] ??
-                                    defaultLabel;
-                            final sub = btnDef['sub'] as String;
+                                    _customLabels[keyId];
+                            final isCustomized =
+                                keyCustomLabel != null && keyCustomLabel.trim().isNotEmpty;
+                            final displayLabel =
+                                isCustomized ? keyCustomLabel : defaultLabel;
+                            final defaultSub = btnDef['sub'] as String;
+                            // Se a tecla for do Numpad e for renomeada, exibe a tecla física original na sub-label
+                            final sub = (defaultSub == 'Numpad' && isCustomized)
+                                ? defaultLabel
+                                : defaultSub;
                             final color = btnDef['color'] as Color;
                             final icon = btnDef['icon'] as IconData?;
                             final isPressed = _pressedKeys.contains(keyId);
